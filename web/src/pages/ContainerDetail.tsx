@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   fetchContainer,
@@ -7,12 +7,14 @@ import {
   fetchContainerLogs,
 } from '../api/client'
 import { formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
+import { startLogStream } from '../lib/logStream'
 import { getInspectRedactDefault } from '../lib/prefs'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveState } from '../realtime/useLiveState'
 
 const tabs = ['overview', 'ports', 'networks', 'volumes', 'stats', 'logs', 'inspect'] as const
 type Tab = (typeof tabs)[number]
+const MAX_LIVE_LOG_CHARS = 512 * 1024
 
 export function ContainerDetailPage() {
   const { id = '' } = useParams()
@@ -22,6 +24,10 @@ export function ContainerDetailPage() {
   const [redact, setRedact] = useState(() => getInspectRedactDefault())
   const [tail, setTail] = useState(200)
   const [timestamps, setTimestamps] = useState(false)
+  const [followLive, setFollowLive] = useState(true)
+  const [liveText, setLiveText] = useState('')
+  const [liveStatus, setLiveStatus] = useState('')
+  const logRef = useRef<HTMLPreElement>(null)
 
   const containerQ = useQuery({
     queryKey: ['container', id],
@@ -39,8 +45,35 @@ export function ContainerDetailPage() {
   const logsQ = useQuery({
     queryKey: ['container-logs', id, tail, timestamps],
     queryFn: () => fetchContainerLogs(id, { tail, timestamps }),
-    enabled: !!id && tab === 'logs',
+    enabled: !!id && tab === 'logs' && !followLive,
   })
+
+  useEffect(() => {
+    if (tab !== 'logs' || !followLive || !id) {
+      setLiveStatus('')
+      return
+    }
+    setLiveText('')
+    setLiveStatus('connecting…')
+    const handle = startLogStream(
+      id,
+      { tail, timestamps },
+      (chunk) => {
+        setLiveText((prev) => {
+          const next = prev + chunk
+          return next.length > MAX_LIVE_LOG_CHARS ? next.slice(-MAX_LIVE_LOG_CHARS) : next
+        })
+      },
+      (st) => setLiveStatus(st),
+    )
+    return () => handle.stop()
+  }, [tab, followLive, id, tail, timestamps])
+
+  useEffect(() => {
+    if (followLive && logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight
+    }
+  }, [liveText, followLive])
 
   const c = useMemo(() => {
     const raw = containerQ.data?.data
@@ -281,7 +314,8 @@ export function ContainerDetailPage() {
       {tab === 'logs' ? (
         <section className="panel">
           <div className="banner info" style={{ border: 'none', margin: '0 0 0.75rem', padding: 0 }}>
-            Logs are fetched on demand and are not stored by this app.
+            Logs are not stored by this app.
+            {followLive ? ` · stream: ${liveStatus || '…'}` : ' · snapshot mode'}
           </div>
           <div className="toolbar">
             <label className="check-row">
@@ -304,15 +338,33 @@ export function ContainerDetailPage() {
               />
               Timestamps
             </label>
-            <button type="button" className="btn" onClick={() => void logsQ.refetch()}>
-              Refresh
-            </button>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={followLive}
+                onChange={(e) => setFollowLive(e.target.checked)}
+              />
+              Live stream
+            </label>
+            {!followLive ? (
+              <button type="button" className="btn" onClick={() => void logsQ.refetch()}>
+                Refresh
+              </button>
+            ) : null}
           </div>
-          {logsQ.isError ? <div className="banner danger">{(logsQ.error as Error).message}</div> : null}
-          {logsQ.data?.data.truncated ? (
+          {!followLive && logsQ.isError ? (
+            <div className="banner danger">{(logsQ.error as Error).message}</div>
+          ) : null}
+          {!followLive && logsQ.data?.data.truncated ? (
             <div className="banner info">Output truncated to size limit.</div>
           ) : null}
-          <pre className="log-view">{logsQ.isLoading ? 'Loading…' : logsQ.data?.data.text || '(empty)'}</pre>
+          <pre className="log-view" ref={logRef}>
+            {followLive
+              ? liveText || (liveStatus === 'live' ? '(waiting for lines…)' : 'Connecting…')
+              : logsQ.isLoading
+                ? 'Loading…'
+                : logsQ.data?.data.text || '(empty)'}
+          </pre>
         </section>
       ) : null}
 

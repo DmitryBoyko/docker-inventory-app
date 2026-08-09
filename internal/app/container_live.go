@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -148,6 +149,144 @@ func (s *ContainerLiveService) Logs(ctx context.Context, id string, opts LogsOpt
 		Truncated:  truncated,
 		Text:       text,
 	}, nil
+}
+
+// StreamLogsOptions controls a follow log stream.
+type StreamLogsOptions struct {
+	Tail       int
+	Since      string
+	Timestamps bool
+}
+
+// StreamLogs follows container logs until ctx is cancelled. Emits demuxed text chunks
+// (often whole lines). Does not persist logs.
+func (s *ContainerLiveService) StreamLogs(ctx context.Context, id string, opts StreamLogsOptions, emit func(chunk string) error) error {
+	fullID, _, err := s.resolveID(id)
+	if err != nil {
+		return err
+	}
+	tail := opts.Tail
+	if tail <= 0 {
+		tail = defaultLogTail
+	}
+	if tail > maxLogTail {
+		tail = maxLogTail
+	}
+	if emit == nil {
+		return errors.New("emit required")
+	}
+
+	rc, err := s.Docker.API().ContainerLogs(ctx, fullID, client.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Timestamps: opts.Timestamps,
+		Follow:     true,
+		Tail:       strconv.Itoa(tail),
+		Since:      opts.Since,
+	})
+	if err != nil {
+		return fmt.Errorf("%s", docker.ClassifyError(s.Docker.Endpoint().Host, err))
+	}
+	defer rc.Close()
+
+	br := bufio.NewReader(rc)
+	peek, _ := br.Peek(8)
+	if looksLikeStdcopy(peek) {
+		stdout := &chunkWriter{emit: emit}
+		stderr := &chunkWriter{emit: emit}
+		_, copyErr := stdcopy.StdCopy(stdout, stderr, br)
+		_ = stdout.flush()
+		_ = stderr.flush()
+		if ctx.Err() != nil || errors.Is(copyErr, context.Canceled) || errors.Is(copyErr, io.EOF) || copyErr == nil {
+			return nil
+		}
+		return copyErr
+	}
+	return streamRawLines(ctx, br, emit)
+}
+
+func looksLikeStdcopy(b []byte) bool {
+	if len(b) < 8 {
+		return false
+	}
+	// stdcopy header: stream (0-2) + 3 zero bytes + big-endian size.
+	return b[0] <= 2 && b[1] == 0 && b[2] == 0 && b[3] == 0
+}
+
+type chunkWriter struct {
+	buf  []byte
+	emit func(string) error
+}
+
+func (w *chunkWriter) Write(p []byte) (int, error) {
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			// Cap unbounded mid-line buffer.
+			if len(w.buf) > 64<<10 {
+				chunk := string(w.buf)
+				w.buf = w.buf[:0]
+				if err := w.emit(chunk); err != nil {
+					return 0, err
+				}
+			}
+			return len(p), nil
+		}
+		line := string(w.buf[:i+1])
+		w.buf = w.buf[i+1:]
+		if err := w.emit(line); err != nil {
+			return 0, err
+		}
+	}
+}
+
+func (w *chunkWriter) flush() error {
+	if len(w.buf) == 0 {
+		return nil
+	}
+	chunk := string(w.buf)
+	w.buf = w.buf[:0]
+	return w.emit(chunk)
+}
+
+func streamRawLines(ctx context.Context, r io.Reader, emit func(string) error) error {
+	buf := make([]byte, 32<<10)
+	var pending []byte
+	for {
+		if ctx.Err() != nil {
+			return nil
+		}
+		n, err := r.Read(buf)
+		if n > 0 {
+			pending = append(pending, buf[:n]...)
+			for {
+				i := bytes.IndexByte(pending, '\n')
+				if i < 0 {
+					break
+				}
+				if e := emit(string(pending[:i+1])); e != nil {
+					return e
+				}
+				pending = pending[i+1:]
+			}
+			if len(pending) > 64<<10 {
+				if e := emit(string(pending)); e != nil {
+					return e
+				}
+				pending = pending[:0]
+			}
+		}
+		if err != nil {
+			if len(pending) > 0 {
+				_ = emit(string(pending))
+			}
+			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 func demuxLogs(raw []byte) string {

@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/containers", s.handleListContainers)
 	mux.HandleFunc("GET /api/v1/containers/{id}/stats", s.handleGetContainerStats)
 	mux.HandleFunc("GET /api/v1/containers/{id}/inspect", s.handleGetContainerInspect)
+	mux.HandleFunc("GET /api/v1/containers/{id}/logs/ws", s.handleContainerLogsWS)
 	mux.HandleFunc("GET /api/v1/containers/{id}/logs", s.handleGetContainerLogs)
 	mux.HandleFunc("GET /api/v1/containers/{id}", s.handleGetContainer)
 

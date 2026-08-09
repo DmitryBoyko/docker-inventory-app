@@ -248,6 +248,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /containers/{id}/logs/ws:
+    get:
+      tags: [Containers]
+      summary: Follow log stream (WebSocket)
+      operationId: streamContainerLogs
+      description: |
+        Upgrade to WebSocket. Server frames:
+        `container.logs.status`, `container.logs` ({ text }), `error`.
+        Auth: Bearer header or `?access_token=` (same as hub).
+        Logs are not persisted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tail
+          in: query
+          schema: { type: integer, default: 200 }
+        - name: timestamps
+          in: query
+          schema: { type: boolean, default: false }
+        - name: since
+          in: query
+          schema: { type: string }
+        - name: access_token
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "101":
+          description: Switching Protocols
+        "401":
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Container not found (sent as WS error frame after upgrade when applicable)
+
   /stacks:
     get:
       tags: [Stacks]

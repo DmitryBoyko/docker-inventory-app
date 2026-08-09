@@ -28,4 +28,35 @@ func TestParseComposeLabels_ProjectService(t *testing.T) {
 	if m.ContainerNumber == nil || *m.ContainerNumber != 2 {
 		t.Fatalf("num=%v", m.ContainerNumber)
 	}
+	if m.Source != "compose" {
+		t.Fatalf("source=%s", m.Source)
+	}
+}
+
+func TestParseComposeLabels_SwarmStack(t *testing.T) {
+	m := ParseComposeLabels(map[string]string{
+		LabelSwarmStackNamespace: "shop",
+		LabelSwarmServiceName:    "shop_web",
+	})
+	if m.Project != "shop" || m.Source != "swarm" {
+		t.Fatalf("%+v", m)
+	}
+	if m.Service == nil || *m.Service != "web" {
+		t.Fatalf("service=%v", m.Service)
+	}
+}
+
+func TestParseComposeLabels_ComposeWinsOverSwarm(t *testing.T) {
+	m := ParseComposeLabels(map[string]string{
+		LabelComposeProject:      "compose-proj",
+		LabelComposeService:      "api",
+		LabelSwarmStackNamespace: "swarm-ns",
+		LabelSwarmServiceName:    "swarm-ns_api",
+	})
+	if m.Project != "compose-proj" || m.Source != "compose" {
+		t.Fatalf("%+v", m)
+	}
+	if m.Service == nil || *m.Service != "api" {
+		t.Fatalf("service=%v", m.Service)
+	}
 }

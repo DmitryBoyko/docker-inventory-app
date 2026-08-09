@@ -12,3 +12,4 @@ internal/uiembed/dist/**
 .idea/
 .vscode/
 .goreleaser/
+.gotmp/

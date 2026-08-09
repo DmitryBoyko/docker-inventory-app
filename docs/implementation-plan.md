@@ -1058,12 +1058,11 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 - Settings (intervals display, theme, redact default) ✅  
 - Multi-host (multiple Docker endpoints)  
 - Historical metrics (SQLite)  
-- Log stream WS  
-- Swarm stack labels  
+- Log stream WS ✅ — `GET /api/v1/containers/{id}/logs/ws`  
+- Swarm stack labels ✅ — `com.docker.stack.namespace` (+ service name)  
 - Export JSON/CSV (structured PS replacement) ✅ — `GET /api/v1/export`  
-
 - Optional safe mutations behind explicit `--enable-mutate`  
-- Mobile-responsive polish  
+- Mobile-responsive polish ✅ — collapsible nav, 900/640 breakpoints  
 
 ---
 
