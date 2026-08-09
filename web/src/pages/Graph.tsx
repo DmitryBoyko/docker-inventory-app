@@ -124,25 +124,31 @@ export function GraphPage() {
   const scope = params.get('scope') === 'stack' ? 'stack' : 'all'
   const stack = params.get('stack') ?? ''
   const [showImages, setShowImages] = useState(true)
+  const [paused, setPaused] = useState(false)
+  /** Snapshot of API graph while paused (same ref as last live data — avoids relayout on pause). */
+  const [frozenGraph, setFrozenGraph] = useState<GraphModel | null>(null)
 
   const stacksQ = useQuery({
     queryKey: ['stacks'],
     queryFn: fetchStacks,
-    refetchInterval: live.connected ? 20000 : 5000,
+    refetchInterval: paused ? false : live.connected ? 20000 : 5000,
   })
 
   const graphQ = useQuery({
     queryKey: ['graph', { scope, stack }],
     queryFn: () => fetchGraph({ scope, stack: scope === 'stack' ? stack : undefined }),
     enabled: scope === 'all' || stack.length > 0,
-    refetchInterval: live.connected ? 15000 : 5000,
+    refetchInterval: paused ? false : live.connected ? 15000 : 5000,
+    refetchOnWindowFocus: !paused,
   })
 
   const hostRef = useRef<HTMLDivElement | null>(null)
   const cyRef = useRef<Core | null>(null)
 
+  const sourceGraph = paused && frozenGraph ? frozenGraph : (graphQ.data?.data ?? null)
+
   const filtered = useMemo(() => {
-    const g = graphQ.data?.data
+    const g = sourceGraph
     if (!g) return null
     if (showImages) return g
     const drop = new Set(g.nodes.filter((n) => n.type === 'image').map((n) => n.id))
@@ -151,7 +157,25 @@ export function GraphPage() {
       nodes: g.nodes.filter((n) => n.type !== 'image'),
       edges: g.edges.filter((e) => e.type !== 'uses_image' && !drop.has(e.target) && !drop.has(e.source)),
     }
-  }, [graphQ.data, showImages])
+  }, [sourceGraph, showImages])
+
+  function togglePause() {
+    if (!paused) {
+      // Keep the exact object currently on screen — no cytoscape destroy/relayout.
+      if (graphQ.data?.data) setFrozenGraph(graphQ.data.data)
+      setPaused(true)
+    } else {
+      setPaused(false)
+      setFrozenGraph(null)
+      void graphQ.refetch()
+    }
+  }
+
+  // Scope/stack change must leave pause so the new graph can load.
+  useEffect(() => {
+    setPaused(false)
+    setFrozenGraph(null)
+  }, [scope, stack])
 
   useEffect(() => {
     if (!hostRef.current || !filtered) return
@@ -213,6 +237,7 @@ export function GraphPage() {
           {filtered ? t('graph.nodesEdges', { nodes: filtered.nodes.length, edges: filtered.edges.length }) : '—'}
           {' · '}
           {t('common.snapshot')} {formatAgeMs(graphQ.data?.snapshotAgeMs)}
+          {paused ? ` · ${t('graph.paused')}` : ` · ${t('graph.live')}`}
         </p>
       </div>
 
@@ -220,6 +245,7 @@ export function GraphPage() {
         <select
           className="select"
           value={scope}
+          disabled={paused}
           onChange={(e) => {
             const next = e.target.value
             const p = new URLSearchParams()
@@ -236,6 +262,7 @@ export function GraphPage() {
           <select
             className="select"
             value={stack}
+            disabled={paused}
             onChange={(e) => {
               const p = new URLSearchParams()
               p.set('scope', 'stack')
@@ -257,7 +284,16 @@ export function GraphPage() {
         </label>
         <button
           type="button"
+          className={`btn${paused ? ' active' : ''}`}
+          onClick={togglePause}
+          title={paused ? t('graph.resumeHint') : t('graph.pauseHint')}
+        >
+          {paused ? t('graph.resume') : t('graph.pause')}
+        </button>
+        <button
+          type="button"
           className="btn"
+          disabled={!filtered}
           onClick={() =>
             cyRef.current
               ?.layout({ name: 'fcose', animate: true } as unknown as cytoscape.LayoutOptions)
@@ -268,13 +304,12 @@ export function GraphPage() {
         </button>
       </div>
 
+      {paused ? <div className="banner info">{t('graph.pausedBanner')}</div> : null}
       {graphQ.isError ? <div className="banner danger">{(graphQ.error as Error).message}</div> : null}
       {scope === 'stack' && !stack ? <div className="banner info">{t('graph.chooseStack')}</div> : null}
 
-      <div className="graph-legend muted tiny">
-        {t('graph.legend')}
-      </div>
-      <div className="graph-host" ref={hostRef} />
+      <div className="graph-legend muted tiny">{t('graph.legend')}</div>
+      <div className={`graph-host${paused ? ' graph-host-paused' : ''}`} ref={hostRef} />
     </div>
   )
 }

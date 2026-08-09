@@ -6,6 +6,7 @@ export type ExposureRouteRow = ExternalExposure & {
   containerId: string
   containerIdShort: string
   containerName: string
+  stack: string
   health: string
   state: string
 }
@@ -80,6 +81,7 @@ export function collectExposureRoutes(containers: Container[]): ExposureRouteRow
         containerId: c.id,
         containerIdShort: c.idShort,
         containerName: c.name,
+        stack: c.stack || 'standalone',
         health: c.health,
         state: c.state,
       })

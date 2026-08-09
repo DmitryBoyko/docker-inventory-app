@@ -31,6 +31,7 @@ assert(portExposureToScope('specific') === 'lan', 'specific→lan')
 assert(containerExposureScope(c) === 'external', 'summary')
 const routes = routesForContainer(c)
 assert(routes.length === 1 && routes[0].hostIP === '*', 'display *')
+assert(collectExposureRoutes([c])[0].stack === 'app', 'stack')
 assert(collectExposureRoutes([c]).length === 1, 'collect')
 
 console.log('exposure.test.ts ok')
