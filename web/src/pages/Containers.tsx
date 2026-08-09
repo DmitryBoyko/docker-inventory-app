@@ -7,6 +7,7 @@ import { ContainerTableRow } from '../components/ContainerTableRow'
 import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveConnected, useThrottledStatsById } from '../realtime/useLiveState'
 
@@ -57,13 +58,15 @@ export function ContainersPage() {
     return next
   }, [query.data, statsById])
 
+  const dataAgeMs = useGrowingAgeMs(query.data?.snapshotAgeMs, query.dataUpdatedAt)
+
   return (
-    <div className="page">
+    <div className="page page-fill">
       <div className="page-head">
         <h1>{t('containers.title')}</h1>
         <p className="muted">
-          {t('common.shown', { n: rows.length })} · {t('common.snapshot')}{' '}
-          {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} ·{' '}
+          {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
         </p>
       </div>
 
@@ -97,7 +100,7 @@ export function ContainersPage() {
         <div className="banner danger">{(query.error as Error).message}</div>
       ) : null}
 
-      <div className="table-wrap">
+      <div className="table-wrap table-wrap-fill">
         <table className="table dense">
           <thead>
             <tr>

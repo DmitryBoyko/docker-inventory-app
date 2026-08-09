@@ -1,14 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchImages } from '../api/client'
+import type { Image } from '../api/types'
 import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
 import { useT } from '../i18n'
 import { formatAgeMs, formatBytes } from '../lib/format'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
 import { useLiveConnected } from '../realtime/useLiveState'
+
+function namedTags(img: Image): string[] {
+  return (img.repoTags ?? []).filter((x) => x && x !== '<none>:<none>')
+}
 
 export function ImagesPage() {
   const t = useT()
@@ -27,14 +33,22 @@ export function ImagesPage() {
   })
 
   const rows = query.data?.data ?? []
+  const untaggedCount = useMemo(() => rows.filter((img) => img.dangling || namedTags(img).length === 0).length, [rows])
+  const dataAgeMs = useGrowingAgeMs(query.data?.snapshotAgeMs, query.dataUpdatedAt)
 
   return (
-    <div className="page">
+    <div className="page page-fill">
       <div className="page-head">
-        <h1>{t('images.title')}</h1>
-        <p className="muted">
-          {t('common.shown', { n: rows.length })} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
-        </p>
+        <div>
+          <h1>{t('images.title')}</h1>
+          <p className="muted page-lead">{t('images.lead')}</p>
+          <p className="muted">
+            {t('common.shown', { n: rows.length })}
+            {untaggedCount > 0 ? ` · ${t('images.untaggedCount', { n: untaggedCount })}` : ''}
+            {' · '}
+            {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
+          </p>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -43,8 +57,14 @@ export function ImagesPage() {
           placeholder={t('images.search')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label={t('images.search')}
         />
-        <select className="select" value={dangling} onChange={(e) => setDangling(e.target.value)}>
+        <select
+          className="select"
+          value={dangling}
+          onChange={(e) => setDangling(e.target.value)}
+          aria-label={t('images.filterLabel')}
+        >
           <option value="">{t('images.all')}</option>
           <option value="false">{t('images.tagged')}</option>
           <option value="true">{t('images.danglingFilter')}</option>
@@ -53,49 +73,70 @@ export function ImagesPage() {
 
       {query.isError ? <div className="banner danger">{(query.error as Error).message}</div> : null}
 
-      <div className="table-wrap">
+      <div className="table-wrap table-wrap-fill">
         <table className="table dense">
           <thead>
             <tr>
-              <th>{t('images.tags')}</th>
+              <th>{t('images.name')}</th>
+              <th>{t('images.status')}</th>
               <th className="num">{t('common.size')}</th>
-              <th className="num">{t('common.shared')}</th>
-              <th className="num">{t('common.containers')}</th>
-              <th>{t('images.dangling')}</th>
+              <th className="num">{t('images.sharedSize')}</th>
+              <th>{t('images.usedBy')}</th>
               <th>{t('common.id')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((img) => {
-              const tag = (img.repoTags ?? []).find((x) => x !== '<none>:<none>') || img.id
+              const tags = namedTags(img)
+              const untagged = img.dangling || tags.length === 0
+              const selectRef = tags[0] || img.id
+              const containers = img.containers ?? []
               return (
-              <tr key={img.id} className={selected === tag ? 'row-selected' : undefined}>
-                <td className="mono">
-                  <button type="button" className="text-link linkish" onClick={() => setSelected(tag)}>
-                    {(img.repoTags ?? []).filter((x) => x !== '<none>:<none>').join(', ') || '—'}
-                  </button>
-                </td>
-                <td className="num">
-                  {formatBytes(img.sizeBytes)}{' '}
-                  <ProvenanceHint provenanceId="image.size" displayedValue={formatBytes(img.sizeBytes)} />
-                </td>
-                <td className="num">
-                  {img.sharedSizeBytes == null ? 'n/a' : formatBytes(img.sharedSizeBytes)}
-                </td>
-                <td className="num">
-                  {(img.containers ?? []).map((c, i) => (
-                    <span key={c}>
-                      {i > 0 ? ', ' : ''}
-                      <Link className="text-link" to={`/containers?q=${encodeURIComponent(c)}`}>
-                        {c}
-                      </Link>
-                    </span>
-                  ))}
-                  {(img.containers ?? []).length === 0 ? String(img.containerCount) : ''}
-                </td>
-                <td>{img.dangling ? <span className="pill health-unhealthy">{t('images.dangling')}</span> : '—'}</td>
-                <td className="mono">{img.idShort}</td>
-              </tr>
+                <tr key={img.id} className={selected === selectRef ? 'row-selected' : undefined}>
+                  <td className={untagged ? 'wrap' : 'mono wrap'}>
+                    <button type="button" className="text-link linkish" onClick={() => setSelected(selectRef)}>
+                      {untagged ? (
+                        <span className="muted-strong">{t('images.noName')}</span>
+                      ) : (
+                        tags.join(', ')
+                      )}
+                    </button>
+                    {untagged ? <div className="cell-hint muted">{t('images.noNameHint')}</div> : null}
+                  </td>
+                  <td>
+                    {untagged ? (
+                      <span className="pill health-unhealthy" title={t('images.statusUntaggedTitle')}>
+                        {t('images.statusUntagged')}
+                      </span>
+                    ) : (
+                      <span className="pill health-healthy">{t('images.statusNamed')}</span>
+                    )}
+                  </td>
+                  <td className="num">
+                    {formatBytes(img.sizeBytes)}{' '}
+                    <ProvenanceHint provenanceId="image.size" displayedValue={formatBytes(img.sizeBytes)} />
+                  </td>
+                  <td className="num muted">
+                    {img.sharedSizeBytes == null ? t('images.sharedUnknown') : formatBytes(img.sharedSizeBytes)}
+                  </td>
+                  <td className="wrap">
+                    {containers.length > 0 ? (
+                      containers.map((c, i) => (
+                        <span key={c}>
+                          {i > 0 ? ', ' : ''}
+                          <Link className="text-link" to={`/containers?q=${encodeURIComponent(c)}`}>
+                            {c}
+                          </Link>
+                        </span>
+                      ))
+                    ) : img.containerCount > 0 ? (
+                      t('images.containersCount', { n: img.containerCount })
+                    ) : (
+                      <span className="muted">{t('images.unused')}</span>
+                    )}
+                  </td>
+                  <td className="mono muted">{img.idShort}</td>
+                </tr>
               )
             })}
             {!query.isLoading && rows.length === 0 ? (

@@ -187,6 +187,8 @@ export type SystemInfo = {
   containersPaused: number
   containersStopped: number
   images: number
+  /** Engine host clock from Docker /info, UTC ISO-8601. */
+  systemTimeUtc?: string
 }
 
 export type ApiEnvelope<T> = {

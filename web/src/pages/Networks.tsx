@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { fetchNetworks } from '../api/client'
 import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { EntityListCell } from '../components/EntityListCell'
 import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
 import { useLiveConnected } from '../realtime/useLiveState'
 
 export function NetworksPage() {
@@ -31,13 +33,14 @@ export function NetworksPage() {
   }, [query.data])
 
   const rows = query.data?.data ?? []
+  const dataAgeMs = useGrowingAgeMs(query.data?.snapshotAgeMs, query.dataUpdatedAt)
 
   return (
-    <div className="page">
+    <div className="page page-fill">
       <div className="page-head">
         <h1>{t('networks.title')}</h1>
         <p className="muted">
-          {t('common.shown', { n: rows.length })} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} · {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
         </p>
       </div>
 
@@ -60,7 +63,7 @@ export function NetworksPage() {
 
       {query.isError ? <div className="banner danger">{(query.error as Error).message}</div> : null}
 
-      <div className="table-wrap">
+      <div className="table-wrap table-wrap-fill">
         <table className="table">
           <thead>
             <tr>
@@ -89,28 +92,20 @@ export function NetworksPage() {
                   {n.attachable ? <span className="pill">{t('networks.attachable')}</span> : null}
                   {!n.internal && !n.ingress && !n.attachable ? <span className="muted">—</span> : null}
                 </td>
-                <td className="num">
-                  {(n.containers ?? []).map((c, i) => (
-                    <span key={c}>
-                      {i > 0 ? ', ' : ''}
-                      <Link className="text-link" to={`/containers?q=${encodeURIComponent(c)}`}>
-                        {c}
-                      </Link>
-                    </span>
-                  ))}
-                  {(n.containers ?? []).length === 0 ? '0' : ''}
+                <td className="cell-entities">
+                  <EntityListCell
+                    names={n.containers ?? []}
+                    to={(c) => `/containers?q=${encodeURIComponent(c)}`}
+                    empty="0"
+                  />
                 </td>
-                <td>
-                  {(n.stacks ?? []).length === 0
-                    ? '—'
-                    : (n.stacks ?? []).map((s, i) => (
-                        <span key={s}>
-                          {i > 0 ? ', ' : ''}
-                          <Link className="text-link" to={`/containers?stack=${encodeURIComponent(s)}`}>
-                            {s}
-                          </Link>
-                        </span>
-                      ))}
+                <td className="cell-entities">
+                  <EntityListCell
+                    names={n.stacks ?? []}
+                    to={(s) => `/containers?stack=${encodeURIComponent(s)}`}
+                    empty="—"
+                    preview={1}
+                  />
                 </td>
                 <td className="mono">{n.idShort}</td>
               </tr>

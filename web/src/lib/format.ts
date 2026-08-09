@@ -62,7 +62,21 @@ export function formatUptime(seconds: number | null | undefined): string {
 }
 
 export function formatAgeMs(ms: number | undefined): string {
-  if (ms == null) return '—'
-  if (ms < 1000) return `${ms} ms`
-  return `${(ms / 1000).toFixed(1)} s`
+  if (ms == null || Number.isNaN(ms) || ms < 0) return '—'
+  if (ms < 1500) return tr('format.ageJustNow')
+  if (ms < 60_000) {
+    const n = Math.max(1, Math.round(ms / 1000))
+    return tr('format.ageSeconds', { n })
+  }
+  if (ms < 3600_000) {
+    const n = Math.max(1, Math.round(ms / 60_000))
+    return tr('format.ageMinutes', { n })
+  }
+  if (ms < 86400_000) {
+    const n = Math.max(1, Math.round(ms / 3600_000))
+    return tr('format.ageHours', { n })
+  }
+  const n = Math.max(1, Math.round(ms / 86400_000))
+  return tr('format.ageDays', { n })
 }
+

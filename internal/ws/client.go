@@ -31,10 +31,12 @@ func NewClient(hub *Hub, conn *websocket.Conn, host string) *Client {
 		conn: conn,
 		host: host,
 		subs: map[string]*StatsFilters{
-			// Auto-subscribe lightweight channels; stats requires explicit subscribe.
+			// Auto-subscribe realtime channels so the dashboard gets data
+			// even before the client's explicit subscribe frame arrives.
 			ChannelEvents:     {},
 			ChannelSnapshots:  {},
 			ChannelConnection: {},
+			ChannelStats:      {},
 		},
 		send: make(chan Envelope, clientSendBuffer),
 	}
@@ -87,6 +89,10 @@ func (c *Client) filterStats(env Envelope) []StatsItem {
 	f := c.subs[ChannelStats]
 	c.mu.RUnlock()
 	if f == nil {
+		return items
+	}
+	// No narrowing filters → pass through (including empty sample = keep live tip moving).
+	if f.Stack == "" && len(f.ContainerIDs) == 0 {
 		return items
 	}
 	idSet := map[string]struct{}{}

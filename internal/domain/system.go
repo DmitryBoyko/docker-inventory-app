@@ -4,24 +4,26 @@ import "time"
 
 // SystemInfo is a trimmed Engine info view.
 type SystemInfo struct {
-	ID                 string `json:"id,omitempty"`
-	Name               string `json:"name,omitempty"`
-	ServerVersion      string `json:"serverVersion"`
-	APIVersion         string `json:"apiVersion,omitempty"`
-	OS                 string `json:"os"`
-	OSVersion          string `json:"osVersion,omitempty"`
-	OSType             string `json:"osType,omitempty"`
-	Architecture       string `json:"architecture"`
-	KernelVersion      string `json:"kernelVersion,omitempty"`
-	NCPU               int    `json:"cpus"`
-	MemTotalBytes      int64  `json:"memoryBytes"`
-	Driver             string `json:"driver,omitempty"`
-	DockerRootDir      string `json:"dockerRootDir,omitempty"`
-	Containers         int    `json:"containers"`
-	ContainersRunning  int    `json:"containersRunning"`
-	ContainersPaused   int    `json:"containersPaused"`
-	ContainersStopped  int    `json:"containersStopped"`
-	Images             int    `json:"images"`
+	ID                string `json:"id,omitempty"`
+	Name              string `json:"name,omitempty"`
+	ServerVersion     string `json:"serverVersion"`
+	APIVersion        string `json:"apiVersion,omitempty"`
+	OS                string `json:"os"`
+	OSVersion         string `json:"osVersion,omitempty"`
+	OSType            string `json:"osType,omitempty"`
+	Architecture      string `json:"architecture"`
+	KernelVersion     string `json:"kernelVersion,omitempty"`
+	NCPU              int    `json:"cpus"`
+	MemTotalBytes     int64  `json:"memoryBytes"`
+	Driver            string `json:"driver,omitempty"`
+	DockerRootDir     string `json:"dockerRootDir,omitempty"`
+	Containers        int    `json:"containers"`
+	ContainersRunning int    `json:"containersRunning"`
+	ContainersPaused  int    `json:"containersPaused"`
+	ContainersStopped int    `json:"containersStopped"`
+	Images            int    `json:"images"`
+	// SystemTimeUTC is Engine host clock from /info, normalized to UTC RFC3339.
+	SystemTimeUTC string `json:"systemTimeUtc,omitempty"`
 }
 
 // SystemResources is the PowerShell "grand totals" style rollup.

@@ -16,6 +16,8 @@ import { StatCard } from '../components/StatCard'
 import { useT } from '../i18n'
 import { collectExposureRoutes, countByScope } from '../lib/exposure'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
+import { useServerUtcClock } from '../lib/serverClock'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveConnected, useLiveState, useThrottledStatsById } from '../realtime/useLiveState'
 
@@ -75,6 +77,8 @@ export function DashboardPage() {
   const liveMem = live.history[live.history.length - 1]?.mem
   const r = resources.data?.data
   const engine = info.data?.data
+  const dataAgeMs = useGrowingAgeMs(containers.data?.snapshotAgeMs, containers.dataUpdatedAt)
+  const serverUtc = useServerUtcClock(engine?.systemTimeUtc, info.dataUpdatedAt)
   const topMem = useMemo(
     () =>
       [...list]
@@ -90,7 +94,7 @@ export function DashboardPage() {
         <div>
           <h1>{t('dash.title')}</h1>
           <p className="muted">
-            {t('common.snapshot')} {formatAgeMs(containers.data?.snapshotAgeMs)}
+            {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
             {live.connected ? ` · ${t('dash.liveWs')}` : ` · ${t('dash.polling')}`}
             {containers.data?.collectError ? (
               <span className="warn">
@@ -169,6 +173,10 @@ export function DashboardPage() {
                 <dd>
                   {engine.name || '—'} · {engine.os} / {engine.architecture}
                 </dd>
+              </div>
+              <div>
+                <dt>{t('dash.serverTime')}</dt>
+                <dd className="mono">{serverUtc}</dd>
               </div>
               <div>
                 <dt>{t('dash.cpusRam')}</dt>

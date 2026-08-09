@@ -6,6 +6,7 @@ import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
 import { useLiveConnected } from '../realtime/useLiveState'
 
 export function StacksPage() {
@@ -19,13 +20,14 @@ export function StacksPage() {
   })
 
   const stacks = query.data?.data ?? []
+  const dataAgeMs = useGrowingAgeMs(query.data?.snapshotAgeMs, query.dataUpdatedAt)
 
   return (
-    <div className="page">
+    <div className="page page-fill">
       <div className="page-head">
         <h1>{t('stacks.title')}</h1>
         <p className="muted">
-          {t('common.stacks')}: {stacks.length} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.stacks')}: {stacks.length} · {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
         </p>
       </div>
 
@@ -33,7 +35,7 @@ export function StacksPage() {
         <div className="banner danger">{(query.error as Error).message}</div>
       ) : null}
 
-      <div className="table-wrap">
+      <div className="table-wrap table-wrap-fill">
         <table className="table">
           <thead>
             <tr>

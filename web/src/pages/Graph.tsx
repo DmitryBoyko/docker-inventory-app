@@ -8,94 +8,169 @@ import { qk } from '../api/queryClient'
 import type { Graph as GraphModel } from '../api/types'
 import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
+import { getTheme, type Theme } from '../lib/prefs'
+import { useGrowingAgeMs } from '../lib/useGrowingAgeMs'
 import { useLiveConnected } from '../realtime/useLiveState'
 
 cytoscape.use(fcose)
 
-const style = [
-  {
-    selector: 'node',
-    style: {
-      label: 'data(label)',
-      'font-size': '10px',
-      color: '#e7eef7',
-      'text-valign': 'center',
-      'text-halign': 'center',
-      'text-wrap': 'ellipsis',
-      'text-max-width': '90px',
-      'background-color': '#2a3544',
-      width: '36px',
-      height: '36px',
-      'border-width': 2,
-      'border-color': '#3db8ff',
+function graphStylesheet(theme: Theme): cytoscape.StylesheetJson {
+  const light = theme === 'light'
+  const label = light ? '#15202b' : '#f2f7fc'
+  const edge = light ? '#8a97a8' : '#6a788c'
+  const edgeLabel = light ? '#5c6b7a' : '#9aabc0'
+
+  const fills = light
+    ? {
+        default: '#d9e2ec',
+        stack: '#b8daf0',
+        service: '#c9d4f5',
+        container: '#c5e8d8',
+        network: '#f3e2b3',
+        volume: '#e4d4f5',
+        image: '#d9d2f0',
+      }
+    : {
+        default: '#2f3d4f',
+        stack: '#1f7aad',
+        service: '#334066',
+        container: '#245a48',
+        network: '#6a5520',
+        volume: '#4a3560',
+        image: '#3d3558',
+      }
+
+  const borders = light
+    ? {
+        default: '#0077c2',
+        stack: '#0077c2',
+        service: '#4a5fd4',
+        container: '#1f8a55',
+        network: '#b8860b',
+        volume: '#8b5cf6',
+        image: '#7c3aed',
+      }
+    : {
+        default: '#3db8ff',
+        stack: '#3db8ff',
+        service: '#6a7dff',
+        container: '#3ecf8e',
+        network: '#e6b84d',
+        volume: '#c084fc',
+        image: '#a78bfa',
+      }
+
+  return [
+    {
+      selector: 'node',
+      style: {
+        label: 'data(label)',
+        'font-size': 12,
+        'font-weight': 600,
+        color: label,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-wrap': 'wrap',
+        'text-max-width': 88,
+        'text-overflow-wrap': 'anywhere',
+        'text-outline-width': light ? 0 : 2,
+        'text-outline-color': fills.default,
+        'background-color': fills.default,
+        shape: 'round-rectangle',
+        width: 96,
+        height: 56,
+        'border-width': 2,
+        'border-color': borders.default,
+      },
     },
-  },
-  {
-    selector: 'node[type = "stack"]',
-    style: {
-      shape: 'round-rectangle',
-      width: '70px',
-      height: '40px',
-      'background-color': '#1a6f9c',
-      'border-color': '#3db8ff',
-      'font-weight': 700,
+    {
+      selector: 'node[type = "stack"]',
+      style: {
+        width: 120,
+        height: 58,
+        'text-max-width': 108,
+        'background-color': fills.stack,
+        'border-color': borders.stack,
+        'text-outline-color': fills.stack,
+        'font-size': 13,
+        'font-weight': 700,
+      },
     },
-  },
-  {
-    selector: 'node[type = "service"]',
-    style: {
-      shape: 'round-rectangle',
-      'background-color': '#243044',
-      'border-color': '#6a7dff',
+    {
+      selector: 'node[type = "service"]',
+      style: {
+        width: 104,
+        height: 54,
+        'text-max-width': 92,
+        'background-color': fills.service,
+        'border-color': borders.service,
+        'text-outline-color': fills.service,
+      },
     },
-  },
-  {
-    selector: 'node[type = "container"]',
-    style: {
-      shape: 'ellipse',
-      'background-color': '#1e3d32',
-      'border-color': '#3ecf8e',
+    {
+      selector: 'node[type = "container"]',
+      style: {
+        width: 110,
+        height: 54,
+        'text-max-width': 98,
+        'background-color': fills.container,
+        'border-color': borders.container,
+        'text-outline-color': fills.container,
+      },
     },
-  },
-  {
-    selector: 'node[type = "network"]',
-    style: {
-      shape: 'diamond',
-      'background-color': '#3a2f1a',
-      'border-color': '#e6b84d',
+    {
+      selector: 'node[type = "network"]',
+      style: {
+        width: 100,
+        height: 52,
+        'text-max-width': 88,
+        'background-color': fills.network,
+        'border-color': borders.network,
+        'text-outline-color': fills.network,
+      },
     },
-  },
-  {
-    selector: 'node[type = "volume"]',
-    style: {
-      shape: 'barrel',
-      'background-color': '#332840',
-      'border-color': '#c084fc',
+    {
+      selector: 'node[type = "volume"]',
+      style: {
+        width: 100,
+        height: 52,
+        'text-max-width': 88,
+        'background-color': fills.volume,
+        'border-color': borders.volume,
+        'text-outline-color': fills.volume,
+      },
     },
-  },
-  {
-    selector: 'node[type = "image"]',
-    style: {
-      shape: 'hexagon',
-      'background-color': '#2a2438',
-      'border-color': '#a78bfa',
+    {
+      selector: 'node[type = "image"]',
+      style: {
+        width: 110,
+        height: 54,
+        'text-max-width': 98,
+        'background-color': fills.image,
+        'border-color': borders.image,
+        'text-outline-color': fills.image,
+      },
     },
-  },
-  {
-    selector: 'edge',
-    style: {
-      width: 1.5,
-      'line-color': '#3a4658',
-      'target-arrow-color': '#3a4658',
-      'target-arrow-shape': 'triangle',
-      'curve-style': 'bezier',
-      label: 'data(type)',
-      'font-size': '8px',
-      color: '#8b9bb0',
-      'text-rotation': 'autorotate',
+    {
+      selector: 'edge',
+      style: {
+        width: 1.5,
+        'line-color': edge,
+        'target-arrow-color': edge,
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: 'data(type)',
+        'font-size': 9,
+        color: edgeLabel,
+        'text-rotation': 'autorotate',
+        'text-background-opacity': 0.9,
+        'text-background-padding': 2,
+        'text-background-shape': 'round-rectangle',
+        'text-background-color': light ? '#ffffff' : '#0f1419',
+      },
     },
-  },
-] as unknown as cytoscape.StylesheetJson
+  ] as unknown as cytoscape.StylesheetJson
+}
 
 function toElements(g: GraphModel): ElementDefinition[] {
   const nodes: ElementDefinition[] = g.nodes.map((n) => ({
@@ -128,6 +203,14 @@ export function GraphPage() {
   const [paused, setPaused] = useState(false)
   /** Snapshot of API graph while paused (same ref as last live data — avoids relayout on pause). */
   const [frozenGraph, setFrozenGraph] = useState<GraphModel | null>(null)
+  const [theme, setThemeState] = useState<Theme>(() => getTheme())
+
+  useEffect(() => {
+    const sync = () => setThemeState(getTheme())
+    const obs = new MutationObserver(sync)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
 
   const stacksQ = useQuery({
     queryKey: qk.stacks,
@@ -203,13 +286,13 @@ export function GraphPage() {
     const cy = cytoscape({
       container: hostRef.current,
       elements: toElements(data),
-      style,
+      style: graphStylesheet(theme),
       layout: {
         name: 'fcose',
         animate: false,
-        padding: 30,
-        nodeSeparation: 90,
-        idealEdgeLength: 110,
+        padding: 36,
+        nodeSeparation: 120,
+        idealEdgeLength: 150,
       } as unknown as cytoscape.LayoutOptions,
       wheelSensitivity: 0.25,
     })
@@ -240,9 +323,10 @@ export function GraphPage() {
       cy.destroy()
       cyRef.current = null
     }
-  }, [topologyKey, navigate, stack])
+  }, [topologyKey, navigate, stack, theme])
 
   const stackNames = (stacksQ.data?.data ?? []).map((s) => s.name)
+  const dataAgeMs = useGrowingAgeMs(graphQ.data?.snapshotAgeMs, graphQ.dataUpdatedAt)
 
   return (
     <div className="page">
@@ -251,7 +335,7 @@ export function GraphPage() {
         <p className="muted">
           {filtered ? t('graph.nodesEdges', { nodes: filtered.nodes.length, edges: filtered.edges.length }) : '—'}
           {' · '}
-          {t('common.snapshot')} {formatAgeMs(graphQ.data?.snapshotAgeMs)}
+          {t('common.dataUpdated', { age: formatAgeMs(dataAgeMs) })}
           {paused ? ` · ${t('graph.paused')}` : ` · ${t('graph.live')}`}
         </p>
       </div>
@@ -311,7 +395,13 @@ export function GraphPage() {
           disabled={!filtered}
           onClick={() =>
             cyRef.current
-              ?.layout({ name: 'fcose', animate: true } as unknown as cytoscape.LayoutOptions)
+              ?.layout({
+                name: 'fcose',
+                animate: true,
+                padding: 36,
+                nodeSeparation: 120,
+                idealEdgeLength: 150,
+              } as unknown as cytoscape.LayoutOptions)
               .run()
           }
         >

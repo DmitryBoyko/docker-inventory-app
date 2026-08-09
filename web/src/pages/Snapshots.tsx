@@ -73,7 +73,7 @@ export function SnapshotsPage() {
     (listQ.error as ApiError).code === 'snapshots_disabled'
 
   return (
-    <div className="page">
+    <div className="page page-fill">
       <div className="page-head">
         <div>
           <h1>{t('snap.title')}</h1>
@@ -100,8 +100,8 @@ export function SnapshotsPage() {
         <p className="muted">{t('snap.empty')}</p>
       )}
 
-      <div className="table-wrap">
-        <table>
+      <div className="table-wrap table-wrap-fill">
+        <table className="table">
           <thead>
             <tr>
               <th>{t('common.id')}</th>
