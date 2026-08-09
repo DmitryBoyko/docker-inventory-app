@@ -89,6 +89,14 @@ func (c *SystemCollector) waitForInventory(ctx context.Context) {
 	}
 }
 
+// Refresh performs a single system collect (parity harness / tests).
+func (c *SystemCollector) Refresh(ctx context.Context) {
+	if c.Log == nil {
+		c.Log = slog.Default()
+	}
+	c.collectOnce(ctx)
+}
+
 func (c *SystemCollector) collectOnce(ctx context.Context) {
 	start := time.Now()
 	api := c.Docker.API()

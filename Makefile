@@ -3,7 +3,7 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 DIST_DIR := internal/uiembed/dist
 
-.PHONY: tidy test test-integration ui sync-ui build build-all run release-snapshot clean
+.PHONY: tidy test test-integration parity ui sync-ui build build-all run release-snapshot clean
 
 tidy:
 	go mod tidy
@@ -13,6 +13,9 @@ test:
 
 test-integration:
 	go test -tags=integration ./internal/docker/ -count=1 -v
+
+parity:
+	go run ./cmd/parity-check -skip-stats
 
 # Build Vite app into web/dist and sync into the embed package.
 ui: sync-ui

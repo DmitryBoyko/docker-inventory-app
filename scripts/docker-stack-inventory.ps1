@@ -14,11 +14,18 @@
   NetIO, BlockIO, Disk (writable), Health, Restarts, Uptime, State.
 
   Под стеком: сумма RAM/CPU, топ по RAM, тома стека с размерами.
+
+  Для parity harness (Go):
+    .\scripts\docker-stack-inventory.ps1 -JsonOut .\parity-ps.json
 #>
 [CmdletBinding()]
-param()
+param(
+    # When set, write machine-readable parity JSON (schemaVersion=1) and skip Format-Table.
+    [string]$JsonOut = ''
+)
 
 $ErrorActionPreference = 'Stop'
+$script:ParityJsonMode = -not [string]::IsNullOrWhiteSpace($JsonOut)
 
 function Convert-DockerSizeToBytes([string]$sizeText) {
     if ([string]::IsNullOrWhiteSpace($sizeText)) { return [int64]0 }
@@ -68,9 +75,10 @@ function Get-ShortImage([string]$image) {
 function Split-DockerPorts([string]$ports) {
     $extMap   = [ordered]@{}
     $internal = [System.Collections.Generic.List[string]]::new()
+    $exposures = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
     if ([string]::IsNullOrWhiteSpace($ports)) {
-        return [pscustomobject]@{ External = '-'; Internal = '-' }
+        return [pscustomobject]@{ External = '-'; Internal = '-'; Exposures = @() }
     }
 
     foreach ($part in ($ports -split ',\s*')) {
@@ -94,6 +102,7 @@ function Split-DockerPorts([string]$ports) {
             }
         } else {
             if (-not $internal.Contains($p)) { [void]$internal.Add($p) }
+            [void]$exposures.Add('internal')
         }
     }
 
@@ -106,18 +115,31 @@ function Split-DockerPorts([string]$ports) {
         $extra     = @($ips | Where-Object { $_ -notin @('0.0.0.0', '*', '[::]', '127.0.0.1', '[::1]') })
 
         if ($allIfaces -and $extra.Count -eq 0 -and -not $onlyLocal) {
+            [void]$exposures.Add('public')
             "*:${key} [наружу]"
         } elseif ($onlyLocal) {
+            [void]$exposures.Add('localhost')
             "127.0.0.1:${key} [localhost]"
         } else {
+            [void]$exposures.Add('specific')
             ($ips | ForEach-Object { "${_}:${key}" }) -join '; '
         }
     }
 
     [pscustomobject]@{
-        External = if ($externalParts) { ($externalParts -join ' | ') } else { '-' }
-        Internal = if ($internal.Count) { ($internal -join '; ') } else { '-' }
+        External   = if ($externalParts) { ($externalParts -join ' | ') } else { '-' }
+        Internal   = if ($internal.Count) { ($internal -join '; ') } else { '-' }
+        Exposures  = @($exposures | Sort-Object)
     }
+}
+
+function Normalize-ParityHealth([string]$health) {
+    $h = ([string]$health).Trim().ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($h) -or $h -eq '-') { return 'none' }
+    if ($h -match 'unhealthy') { return 'unhealthy' }
+    if ($h -match 'healthy') { return 'healthy' }
+    if ($h -match 'starting') { return 'starting' }
+    return 'unknown'
 }
 
 function Get-VolumeSizeMap {
@@ -279,10 +301,12 @@ $processedData = foreach ($item in $dockerJson) {
     [pscustomobject]@{
         Stack       = $stackName
         Container   = $item.Names
+        IdShort     = $id
         Service     = $serviceName
         Image       = (Get-ShortImage ([string]$item.Image))
         External    = $ports.External
         Internal    = $ports.Internal
+        PortExposures = @($ports.Exposures)
         IP          = $ipDisplay
         Networks    = $netsDisplay
         Volumes     = $volDisplay
@@ -303,6 +327,94 @@ $processedData = foreach ($item in $dockerJson) {
 }
 
 Write-Progress -Activity 'Сбор данных Docker' -Completed
+
+if ($script:ParityJsonMode) {
+    $containerRows = @(
+        $processedData | ForEach-Object {
+            [ordered]@{
+                idShort            = [string]$_.IdShort
+                name               = [string]$_.Container
+                stack              = [string]$_.Stack
+                service            = [string]$_.Service
+                state              = [string]$_.State
+                health             = (Normalize-ParityHealth ([string]$_.Health))
+                restartCount       = [int]$_.Restarts
+                writableLayerBytes = [int64]$_.DiskBytes
+                volumeNames        = @($_.VolumeNames | Where-Object { $_ } | Sort-Object -Unique)
+                cpuPercent         = [double]$_.CPUVal
+                memoryBytes        = [int64]$_.MemBytes
+                portExposures      = @($_.PortExposures)
+            }
+        }
+    )
+
+    $stackRows = @(
+        $processedData | Group-Object Stack | Sort-Object Name | ForEach-Object {
+            $g = $_.Group
+            $volNames = @(
+                $g | ForEach-Object { $_.VolumeNames } | Where-Object { $_ } | Select-Object -Unique | Sort-Object
+            )
+            $volBytes = [int64]0
+            foreach ($vn in $volNames) {
+                if ($volumeSizeMap.ContainsKey($vn)) { $volBytes += [int64]$volumeSizeMap[$vn].Bytes }
+            }
+            $wl = [int64]($g | Measure-Object DiskBytes -Sum).Sum
+            $mem = [int64]($g | Where-Object { $_.State -eq 'running' } | Measure-Object MemBytes -Sum).Sum
+            $cpu = [double]($g | Where-Object { $_.State -eq 'running' } | Measure-Object CPUVal -Sum).Sum
+            [ordered]@{
+                name               = [string]$_.Name
+                containerCount     = [int]$g.Count
+                runningCount       = [int]@($g | Where-Object { $_.State -eq 'running' }).Count
+                unhealthyCount     = [int]@($g | Where-Object { $_.Health -match 'unhealthy' }).Count
+                restartedCount     = [int]@($g | Where-Object { $_.Restarts -gt 0 }).Count
+                cpuPercent         = $cpu
+                memoryBytes        = $mem
+                writableLayerBytes = $wl
+                volumeNames        = $volNames
+                volumeBytes        = $volBytes
+            }
+        }
+    )
+
+    $allVolBytes = [int64]0
+    $seenVol = @{}
+    $uniqueVolNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($row in $processedData) {
+        foreach ($vn in @($row.VolumeNames)) {
+            if (-not $vn -or $seenVol.ContainsKey($vn)) { continue }
+            $seenVol[$vn] = $true
+            [void]$uniqueVolNames.Add($vn)
+            if ($volumeSizeMap.ContainsKey($vn)) { $allVolBytes += [int64]$volumeSizeMap[$vn].Bytes }
+        }
+    }
+    $uniqueVolNames = @($uniqueVolNames | Sort-Object)
+
+    $payload = [ordered]@{
+        schemaVersion = 1
+        source        = 'powershell'
+        capturedAt    = (Get-Date).ToUniversalTime().ToString('o')
+        containers    = $containerRows
+        stacks        = $stackRows
+        totals        = [ordered]@{
+            containerCount     = [int]@($processedData).Count
+            runningCount       = [int]@($processedData | Where-Object { $_.State -eq 'running' }).Count
+            cpuPercent         = [double]($processedData | Where-Object { $_.State -eq 'running' } | Measure-Object CPUVal -Sum).Sum
+            memoryBytes        = [int64]($processedData | Where-Object { $_.State -eq 'running' } | Measure-Object MemBytes -Sum).Sum
+            writableLayerBytes = [int64]($processedData | Measure-Object DiskBytes -Sum).Sum
+            uniqueVolumeNames  = $uniqueVolNames
+            uniqueVolumeBytes  = $allVolBytes
+        }
+    }
+
+    $json = $payload | ConvertTo-Json -Depth 8 -Compress:$false
+    $dir = Split-Path -Parent $JsonOut
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir | Out-Null
+    }
+    Set-Content -LiteralPath $JsonOut -Value $json -Encoding UTF8
+    Write-Host ("Parity JSON written: {0}" -f $JsonOut) -ForegroundColor Green
+    return
+}
 
 $grouped = $processedData | Group-Object Stack | Sort-Object Name
 

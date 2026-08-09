@@ -1048,7 +1048,7 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 - Settings (intervals, theme) ✅  
 - OpenAPI published  
 - goreleaser artifacts + checksums  
-- Parity test harness vs PS/SH  
+- Parity test harness vs PS/SH ✅ — [`docs/parity.md`](parity.md), `cmd/parity-check`, PS `-JsonOut`  
 
 ---
 

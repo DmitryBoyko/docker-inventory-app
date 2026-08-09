@@ -2,10 +2,11 @@
 
 Cross-platform, read-only Docker inventory utility — **one binary** serves API + embedded React UI.
 
-**Status:** Phase 0–12 + V2 auth/Settings slice (Bearer token, Settings UI).
+**Status:** Phase 0–12 + V2 auth/Settings + V1 parity harness.
 
 - Architecture: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 - Hardening: [`docs/hardening.md`](docs/hardening.md)
+- Parity: [`docs/parity.md`](docs/parity.md)
 - ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md))
 - OpenAPI: [`openapi.yaml`](openapi.yaml)
 - UI: [`web/`](web/)
@@ -107,4 +108,7 @@ Flags:
 go test ./...
 go test -tags=integration ./internal/docker/ -v
 cd web && npm test
+
+# Live Go ↔ PowerShell parity (needs Docker + pwsh/powershell)
+go run ./cmd/parity-check -skip-stats
 ```

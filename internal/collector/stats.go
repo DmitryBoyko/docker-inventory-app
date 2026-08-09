@@ -76,6 +76,17 @@ func (c *StatsCollector) waitForInventory(ctx context.Context) {
 	}
 }
 
+// Refresh performs a single stats sample (parity harness / tests).
+func (c *StatsCollector) Refresh(ctx context.Context) {
+	if c.Log == nil {
+		c.Log = slog.Default()
+	}
+	if c.Concurrency <= 0 {
+		c.Concurrency = defaultStatsConcurrency
+	}
+	c.collectOnce(ctx)
+}
+
 func (c *StatsCollector) collectOnce(ctx context.Context) {
 	start := time.Now()
 	snap := c.Store.Load()
