@@ -118,10 +118,16 @@ func (h *Hub) PublishEventsStatus(connected bool, errMsg string) {
 	}})
 }
 
+// Ensure *Hub implements Bus.
+var _ Bus = (*Hub)(nil)
+
 func (h *Hub) fanOut(env Envelope) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for c := range h.clients {
+		if env.Host != "" && c.hostFilter() != "" && env.Host != c.hostFilter() {
+			continue
+		}
 		if !c.accepts(env) {
 			continue
 		}

@@ -7,19 +7,18 @@ import (
 	"github.com/epm-games/docker-visualizer/internal/ws"
 )
 
-// EventsStatus provides Docker events stream connectivity for WS seeding /ready.
-type EventsStatus interface {
-	Connected() bool
-	LastError() string
-}
-
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
-	if s.Hub == nil {
+	if s.Hub == nil || s.Hosts == nil {
 		writeErr(w, http.StatusServiceUnavailable, "not_ready", "websocket hub not initialized")
 		return
 	}
+	rt, err := s.Hosts.Get(r.URL.Query().Get("host"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "unknown_host", err.Error())
+		return
+	}
+
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		// Local ops tool; Vite dev proxy may change Origin.
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
@@ -28,15 +27,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(1 << 20)
 
 	ctx := r.Context()
-	client := ws.NewClient(s.Hub, conn)
+	client := ws.NewClient(s.Hub, conn, rt.Name)
 	s.Hub.Register(client)
 
-	// Seed after register so the client receives initial status.
-	if s.Docker != nil {
-		s.Hub.PublishConnectionStatus(s.Docker.Ping(ctx))
-	}
-	if s.Events != nil {
-		s.Hub.PublishEventsStatus(s.Events.Connected(), s.Events.LastError())
+	st := rt.Docker.Ping(ctx)
+	st.Name = rt.Name
+	rt.Bus.PublishConnectionStatus(st)
+	if rt.Events != nil {
+		rt.Bus.PublishEventsStatus(rt.Events.Connected(), rt.Events.LastError())
 	}
 
 	go client.WritePump(ctx)

@@ -2,12 +2,12 @@
 
 Cross-platform, read-only Docker inventory utility — **one binary** serves API + embedded React UI.
 
-**Status:** Phase 0–12 + V2 (auth, Settings, export, log stream, Swarm labels, mobile) + V1 parity.
+**Status:** Phase 0–12 + V2 (auth, Settings, multi-host, export, log stream, Swarm labels, mobile) + V1 parity.
 
 - Architecture: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 - Hardening: [`docs/hardening.md`](docs/hardening.md)
 - Parity: [`docs/parity.md`](docs/parity.md)
-- ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md))
+- ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md), [ADR-014](docs/adr/014-multi-host.md))
 - OpenAPI: [`openapi.yaml`](openapi.yaml)
 - UI: [`web/`](web/)
 - Legacy PowerShell source of truth: [`scripts/docker-stack-inventory.ps1`](scripts/docker-stack-inventory.ps1)
@@ -61,8 +61,9 @@ make release-snapshot   # requires goreleaser
 
 ```text
 GET /api/v1/health
-GET /api/v1/ready                 (+ events.connected)
-GET /api/v1/containers            (?stack=&state=&health=&q=)
+GET /api/v1/ready                 (+ events.connected; ?host=)
+GET /api/v1/hosts                 (named Docker endpoints, ADR-014)
+GET /api/v1/containers            (?host=&stack=&state=&health=&q=)
 GET /api/v1/containers/{id}
 GET /api/v1/containers/{id}/stats
 GET /api/v1/containers/{id}/inspect  (?redact=true default)
@@ -97,12 +98,21 @@ Flags:
 --listen 127.0.0.1:8080
 --auth-token <secret>              # required for 0.0.0.0 / LAN binds
 --docker-host unix:///var/run/docker.sock
+--docker-hosts name=url,name2=url  # multi-host (ADR-014); empty ⇒ single "default"
 --docker-config C:\Users\you\.docker
 --docker-timeout 5s
 --inventory-interval 10s
 --stats-interval 1s
 --system-interval 15s
 ```
+
+Multi-host example:
+
+```bash
+go run ./cmd/docker-visualizer --docker-hosts "local=npipe:////./pipe/docker_engine,lab=tcp://192.168.1.10:2376"
+```
+
+UI Host picker appears when more than one host is configured. REST/WS take `?host=<name>` (omit → default).
 
 ## Tests
 

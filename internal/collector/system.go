@@ -19,7 +19,7 @@ import (
 type SystemCollector struct {
 	Docker   *docker.Client
 	Store    *store.Store
-	Hub      *ws.Hub
+	Hub      ws.Bus
 	Interval time.Duration
 	Log      *slog.Logger
 	Health   *observability.Registry

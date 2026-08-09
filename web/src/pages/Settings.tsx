@@ -114,12 +114,36 @@ export function SettingsPage() {
               <dd>{data.uiEmbedded ? 'yes' : 'no'}</dd>
             </div>
             <div>
+              <dt>Default host</dt>
+              <dd className="mono">{data.defaultHost ?? 'default'}</dd>
+            </div>
+            <div>
               <dt>Inspect redact default</dt>
               <dd>{data.defaults.inspectRedact ? 'on' : 'off'}</dd>
             </div>
           </dl>
         ) : (
           <p className="muted">Server settings unavailable until authenticated.</p>
+        )}
+        {data?.hosts && data.hosts.length > 0 && (
+          <>
+            <h3 className="settings-sub">Docker hosts</h3>
+            <ul className="host-list">
+              {data.hosts.map((h) => (
+                <li key={h.name}>
+                  <span className="mono">{h.name}</span>
+                  {h.isDefault ? ' · default' : ''}
+                  {' · '}
+                  <span className="muted mono">{h.endpoint || h.source}</span>
+                  {h.connected ? ' · up' : ' · down'}
+                </li>
+              ))}
+            </ul>
+            <p className="muted tiny">
+              Hosts are configured at process start (`--docker-hosts`). Switching uses the Host
+              picker in the nav (ADR-014).
+            </p>
+          </>
         )}
         <p className="muted tiny">
           Intervals are process flags (`--inventory-interval`, etc.) — restart to change.

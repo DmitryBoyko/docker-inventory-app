@@ -35,12 +35,13 @@ type SystemResources struct {
 
 // ConnectionStatus describes Docker endpoint connectivity (Phase 1+).
 type ConnectionStatus struct {
-	Connected bool      `json:"connected"`
-	Host      string    `json:"host"`
-	Source    string    `json:"source"` // explicit|docker_host|context|default
-	Context   string    `json:"context,omitempty"`
-	APIVersion string   `json:"apiVersion,omitempty"`
-	OSType    string    `json:"osType,omitempty"`
-	CheckedAt time.Time `json:"checkedAt"`
-	Error     string    `json:"error,omitempty"`
+	Connected  bool      `json:"connected"`
+	Name       string    `json:"name,omitempty"` // registry host name (ADR-014)
+	Host       string    `json:"host"`          // Engine endpoint URL
+	Source     string    `json:"source"`        // explicit|docker_host|context|default
+	Context    string    `json:"context,omitempty"`
+	APIVersion string    `json:"apiVersion,omitempty"`
+	OSType     string    `json:"osType,omitempty"`
+	CheckedAt  time.Time `json:"checkedAt"`
+	Error      string    `json:"error,omitempty"`
 }

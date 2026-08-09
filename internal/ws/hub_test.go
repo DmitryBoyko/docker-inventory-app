@@ -9,7 +9,7 @@ import (
 
 func TestClientFilterStats(t *testing.T) {
 	h := NewHub(nil)
-	c := NewClient(h, nil)
+	c := NewClient(h, nil, "default")
 	c.subscribe(ChannelStats, &StatsFilters{Stack: "prod"})
 
 	items := []StatsItem{

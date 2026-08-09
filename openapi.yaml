@@ -38,6 +38,8 @@ paths:
       tags: [Health]
       summary: Readiness — Docker Engine reachable
       operationId: getReady
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
       responses:
         "200":
           description: Docker connected
@@ -52,11 +54,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /hosts:
+    get:
+      tags: [System]
+      summary: List configured Docker hosts (ADR-014)
+      operationId: listHosts
+      responses:
+        "200":
+          description: Host registry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, defaultHost, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  defaultHost: { type: string }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/HostInfo"
+        "503":
+          description: Hosts not initialized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /containers:
     get:
       tags: [Containers]
       summary: List containers from inventory snapshot
       parameters:
+        - $ref: "#/components/parameters/HostQuery"
         - name: stack
           in: query
           schema: { type: string }
@@ -738,9 +768,11 @@ paths:
         Server types: container.stats, docker.event, snapshot.updated,
         connection.status, events.status, ping/pong.
         When auth is enabled, pass `Authorization: Bearer` or `?access_token=`.
+        Multi-host: `?host=<name>` filters envelopes (ADR-014); client may also send `select_host`.
       security:
         - bearerAuth: []
       parameters:
+        - $ref: "#/components/parameters/HostQuery"
         - name: access_token
           in: query
           required: false
@@ -763,6 +795,14 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  parameters:
+    HostQuery:
+      name: host
+      in: query
+      required: false
+      schema: { type: string }
+      description: Named Docker host (ADR-014). Omit for the process default.
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -772,6 +812,18 @@ components:
         WebSocket clients may use `?access_token=` instead.
 
   schemas:
+    HostInfo:
+      type: object
+      required: [name, endpoint, source, isDefault, connected]
+      properties:
+        name: { type: string }
+        endpoint: { type: string }
+        source: { type: string }
+        context: { type: string }
+        isDefault: { type: boolean }
+        connected: { type: boolean }
+        error: { type: string }
+
     SystemSettings:
       type: object
       required:
@@ -787,6 +839,11 @@ components:
         version: { type: string }
         commit: { type: string }
         uiEmbedded: { type: boolean }
+        defaultHost: { type: string }
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/HostInfo"
         defaults:
           type: object
           required: [inspectRedact]

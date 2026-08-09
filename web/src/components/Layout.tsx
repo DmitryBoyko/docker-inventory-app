@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { HostPicker } from './HostPicker'
 import { StatusBanner } from './StatusBanner'
 
 const links = [
@@ -57,6 +58,7 @@ export function Layout() {
               {l.label}
             </NavLink>
           ))}
+          <HostPicker />
         </nav>
       </header>
       <StatusBanner />

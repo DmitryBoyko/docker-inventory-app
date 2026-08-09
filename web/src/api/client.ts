@@ -1,9 +1,10 @@
-import { authHeaders, getAuthToken } from '../lib/prefs'
+import { authHeaders, getAuthToken, getSelectedHost } from '../lib/prefs'
 import type {
   ApiEnvelope,
   ApiErrorBody,
   Container,
   Graph,
+  HostInfo,
   Image,
   Network,
   ReadyResponse,
@@ -27,8 +28,16 @@ export class ApiError extends Error {
   }
 }
 
+/** Append ?host= from local preference (ADR-014). */
+function withHost(path: string): string {
+  const host = getSelectedHost()
+  if (!host) return path
+  const join = path.includes('?') ? '&' : '?'
+  return `${path}${join}host=${encodeURIComponent(host)}`
+}
+
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: authHeaders() })
+  const res = await fetch(withHost(path), { headers: authHeaders() })
   const text = await res.text()
   let body: unknown = null
   if (text) {
@@ -50,7 +59,7 @@ async function getJSON<T>(path: string): Promise<T> {
 }
 
 export async function fetchReady() {
-  const res = await fetch(`${API}/ready`, { headers: authHeaders() })
+  const res = await fetch(withHost(`${API}/ready`), { headers: authHeaders() })
   const body = (await res.json()) as ReadyResponse
   if (res.status === 401) {
     throw new ApiError(401, body.error?.code ?? 'unauthorized', body.error?.message ?? 'unauthorized')
@@ -60,6 +69,14 @@ export async function fetchReady() {
     throw new ApiError(res.status, body.error?.code ?? 'http_error', body.error?.message ?? `HTTP ${res.status}`)
   }
   return body
+}
+
+export function fetchHosts() {
+  return getJSON<{
+    timestamp: string
+    defaultHost: string
+    data: HostInfo[]
+  }>(`${API}/hosts`)
 }
 
 export function fetchContainers(params?: { q?: string; stack?: string; state?: string }) {
@@ -162,7 +179,7 @@ export type ExportScope = 'all' | 'containers' | 'stacks'
 /** Download inventory export (structured PS replacement). */
 export async function downloadExport(format: ExportFormat, scope: ExportScope = 'all') {
   const qs = new URLSearchParams({ format, scope })
-  const res = await fetch(`${API}/export?${qs}`, { headers: authHeaders() })
+  const res = await fetch(withHost(`${API}/export?${qs}`), { headers: authHeaders() })
   if (!res.ok) {
     let message = `HTTP ${res.status}`
     try {
@@ -185,11 +202,13 @@ export async function downloadExport(format: ExportFormat, scope: ExportScope = 
   URL.revokeObjectURL(url)
 }
 
-/** Build WS URL including access_token when a client token is stored. */
+/** Build WS URL including access_token and selected host when set. */
 export function wsURL(): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const u = new URL(`${proto}//${window.location.host}/api/v1/ws`)
   const token = getAuthToken()
   if (token) u.searchParams.set('access_token', token)
+  const host = getSelectedHost()
+  if (host) u.searchParams.set('host', host)
   return u.toString()
 }

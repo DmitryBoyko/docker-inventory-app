@@ -166,6 +166,36 @@ a {
   box-shadow: inset 0 0 0 1px rgba(61, 184, 255, 0.35);
 }
 
+.host-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.35rem;
+  min-height: 40px;
+}
+
+.host-picker-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.host-select {
+  min-width: 7.5rem;
+  max-width: 11rem;
+}
+
+.host-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  line-height: 1.55;
+}
+
+.settings-sub {
+  margin: 1rem 0 0.35rem;
+  font-size: 1rem;
+}
+}
+
 .main {
   flex: 1;
   padding: 1.25rem;
@@ -415,6 +445,19 @@ a {
   .nav-link {
     width: 100%;
     justify-content: flex-start;
+    min-height: 44px;
+  }
+
+  .host-picker {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    min-height: 44px;
+  }
+
+  .host-select {
+    max-width: none;
+    flex: 1;
     min-height: 44px;
   }
 

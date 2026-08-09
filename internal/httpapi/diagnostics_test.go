@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/epm-games/docker-visualizer/internal/app"
 	"github.com/epm-games/docker-visualizer/internal/domain"
 	"github.com/epm-games/docker-visualizer/internal/observability"
 	"github.com/epm-games/docker-visualizer/internal/store"
@@ -22,17 +21,18 @@ func TestDiagnostics_LocalhostOnly(t *testing.T) {
 	health.RecordSuccess("inventory", time.Millisecond)
 
 	s := testServer(t, st)
-	s.Diagnostics = &app.DiagnosticsService{
-		Store:         st,
-		Health:        health,
-		Version:       "test",
-		Commit:        "deadbeef",
-		Listen:        "127.0.0.1:8080",
-		Intervals:     map[string]string{"inventory": "10s"},
-		DockerTimeout: "5s",
-		AuthEnabled:   true,
-		StartedAt:     time.Now().UTC().Add(-time.Minute),
+	rt, err := s.Hosts.Get("")
+	if err != nil {
+		t.Fatal(err)
 	}
+	rt.Health = health
+	s.Version = "test"
+	s.Commit = "deadbeef"
+	s.Listen = "127.0.0.1:8080"
+	s.Intervals = map[string]string{"inventory": "10s"}
+	s.DockerTimeout = "5s"
+	s.AuthEnabled = true
+	s.StartedAt = time.Now().UTC().Add(-time.Minute)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/diagnostics", nil)
 	req.RemoteAddr = "127.0.0.1:54321"

@@ -3,6 +3,10 @@ export type Theme = 'dark' | 'light'
 const KEY_THEME = 'dv.theme'
 const KEY_TOKEN = 'dv.authToken'
 const KEY_REDACT = 'dv.inspectRedact'
+const KEY_HOST = 'dv.dockerHost'
+
+/** Dispatched when the selected Docker host changes (ADR-014). */
+export const HOST_CHANGE_EVENT = 'dv:host-change'
 
 export function getTheme(): Theme {
   const v = localStorage.getItem(KEY_THEME)
@@ -41,6 +45,18 @@ export function getInspectRedactDefault(): boolean {
 
 export function setInspectRedactDefault(on: boolean) {
   localStorage.setItem(KEY_REDACT, on ? '1' : '0')
+}
+
+/** Selected Docker host name; empty ⇒ server default. */
+export function getSelectedHost(): string {
+  return localStorage.getItem(KEY_HOST) ?? ''
+}
+
+export function setSelectedHost(name: string) {
+  const n = name.trim()
+  if (n) localStorage.setItem(KEY_HOST, n)
+  else localStorage.removeItem(KEY_HOST)
+  window.dispatchEvent(new CustomEvent(HOST_CHANGE_EVENT, { detail: n }))
 }
 
 export function authHeaders(): HeadersInit {

@@ -11,13 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/epm-games/docker-visualizer/internal/app"
-	"github.com/epm-games/docker-visualizer/internal/collector"
 	"github.com/epm-games/docker-visualizer/internal/config"
-	"github.com/epm-games/docker-visualizer/internal/docker"
+	"github.com/epm-games/docker-visualizer/internal/hosts"
 	"github.com/epm-games/docker-visualizer/internal/httpapi"
-	"github.com/epm-games/docker-visualizer/internal/observability"
-	"github.com/epm-games/docker-visualizer/internal/store"
 	"github.com/epm-games/docker-visualizer/internal/uiembed"
 	"github.com/epm-games/docker-visualizer/internal/ws"
 )
@@ -47,103 +43,56 @@ func main() {
 		log.Info("API auth enabled", "authEnabled", true)
 	}
 
-	cli, err := docker.Connect(docker.Options{
-		ExplicitHost:    cfg.DockerHost,
-		DockerConfigDir: cfg.DockerConfigDir,
-		Timeout:         cfg.DockerTimeout,
+	hub := ws.NewHub(log)
+	reg, err := hosts.Build(hosts.Options{
+		Hosts:             cfg.DockerHosts,
+		DockerConfigDir:   cfg.DockerConfigDir,
+		DockerTimeout:     cfg.DockerTimeout,
+		InventoryInterval: cfg.InventoryInterval,
+		StatsInterval:     cfg.StatsInterval,
+		SystemInterval:    cfg.SystemInterval,
+		Hub:               hub,
+		Log:               log,
 	})
 	if err != nil {
-		log.Error("docker connect", "err", err)
+		log.Error("docker hosts", "err", err)
 		os.Exit(1)
 	}
-	defer cli.Close()
+	defer reg.Close()
 
-	ep := cli.Endpoint()
-	log.Info("docker endpoint resolved",
-		"host", ep.Host,
-		"source", ep.Source,
-		"context", ep.Context,
-	)
-
-	st := cli.Ping(context.Background())
-	if st.Connected {
-		log.Info("docker ping ok", "apiVersion", st.APIVersion, "osType", st.OSType)
-	} else {
-		log.Warn("docker ping failed at startup; /ready will return 503 until daemon is available",
-			"error", st.Error,
-		)
+	for _, name := range reg.Names() {
+		rt, _ := reg.Get(name)
+		st := rt.Docker.Ping(context.Background())
+		if st.Connected {
+			log.Info("docker ping ok", "name", name, "apiVersion", st.APIVersion, "osType", st.OSType)
+		} else {
+			log.Warn("docker ping failed at startup", "name", name, "error", st.Error)
+		}
 	}
-
-	snapStore := store.New()
-	hub := ws.NewHub(log)
-	health := observability.NewRegistry()
-
-	containersSvc := &app.ContainersService{Store: snapStore}
-	liveSvc := &app.ContainerLiveService{Docker: cli, Store: snapStore}
-	stacksSvc := &app.StacksService{Store: snapStore}
-	networksSvc := &app.NetworksService{Store: snapStore}
-	volumesSvc := &app.VolumesService{Store: snapStore}
-	imagesSvc := &app.ImagesService{Store: snapStore}
-	systemSvc := &app.SystemService{Store: snapStore}
-	graphSvc := &app.GraphService{Store: snapStore}
-	exportSvc := &app.ExportService{Store: snapStore}
-	diagSvc := &app.DiagnosticsService{
-		Store:   snapStore,
-		Docker:  cli,
-		Hub:     hub,
-		Health:  health,
-		Version: version,
-		Commit:  commit,
-		Listen:  cfg.ListenAddr,
-		Intervals: map[string]string{
-			"inventory": cfg.InventoryInterval.String(),
-			"stats":     cfg.StatsInterval.String(),
-			"system":    cfg.SystemInterval.String(),
-		},
-		DockerTimeout: cfg.DockerTimeout.String(),
-		AuthEnabled:   cfg.AuthEnabled(),
-		StartedAt:     startedAt,
-	}
-
-	inv := &collector.InventoryCollector{
-		Docker: cli, Store: snapStore, Hub: hub, Interval: cfg.InventoryInterval, Log: log, Health: health,
-	}
-	statsCol := &collector.StatsCollector{
-		Docker: cli, Store: snapStore, Hub: hub, Interval: cfg.StatsInterval, Log: log, Health: health,
-	}
-	sysCol := &collector.SystemCollector{
-		Docker: cli, Store: snapStore, Hub: hub, Interval: cfg.SystemInterval, Log: log, Health: health,
-	}
-	eventsCol := &collector.EventsCollector{
-		Docker: cli, Hub: hub, Inventory: inv, System: sysCol, Log: log, Health: health,
-	}
-	diagSvc.Events = eventsCol
 
 	runCtx, cancelCollectors := context.WithCancel(context.Background())
 	defer cancelCollectors()
 
 	go hub.Run(runCtx.Done())
-	go inv.Run(runCtx)
-	go statsCol.Run(runCtx)
-	go sysCol.Run(runCtx)
-	go eventsCol.Run(runCtx)
-	go (&collector.ConnectionPublisher{Docker: cli, Hub: hub, Log: log}).Run(runCtx)
+	for _, name := range reg.Names() {
+		rt, _ := reg.Get(name)
+		rt.StartCollectors(runCtx)
+	}
 
 	srv := &httpapi.Server{
-		Docker:      cli,
-		Containers:  containersSvc,
-		Live:        liveSvc,
-		Stacks:      stacksSvc,
-		Networks:    networksSvc,
-		Volumes:     volumesSvc,
-		Images:      imagesSvc,
-		System:      systemSvc,
-		Graph:       graphSvc,
-		Diagnostics: diagSvc,
-		Export:      exportSvc,
-		Hub:         hub,
-		Events:      eventsCol,
-		Version:     version,
+		Hosts:         reg,
+		Hub:           hub,
+		Version:       version,
+		Commit:        commit,
+		Listen:        cfg.ListenAddr,
+		AuthEnabled:   cfg.AuthEnabled(),
+		DockerTimeout: cfg.DockerTimeout.String(),
+		Intervals: map[string]string{
+			"inventory": cfg.InventoryInterval.String(),
+			"stats":     cfg.StatsInterval.String(),
+			"system":    cfg.SystemInterval.String(),
+		},
+		StartedAt: startedAt,
 	}
 	handler := attachUI(srv.Handler(), log)
 	handler = httpapi.Chain(handler,
@@ -157,9 +106,8 @@ func main() {
 		Addr:              cfg.ListenAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
-		// ReadTimeout/WriteTimeout left unset: long-lived WebSocket on /api/v1/ws.
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 20, // 1 MiB
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {
@@ -168,6 +116,8 @@ func main() {
 			"version", version,
 			"commit", commit,
 			"authEnabled", cfg.AuthEnabled(),
+			"hosts", reg.Names(),
+			"defaultHost", reg.Default,
 			"inventory_interval", cfg.InventoryInterval.String(),
 			"stats_interval", cfg.StatsInterval.String(),
 			"system_interval", cfg.SystemInterval.String(),
@@ -193,7 +143,6 @@ func main() {
 	log.Info("shutdown complete")
 }
 
-// attachUI prefers on-disk web/dist (dev override), else embedded SPA (release).
 func attachUI(api http.Handler, log *slog.Logger) http.Handler {
 	if staticDir := resolveWebDist(); httpapi.StaticDirExists(staticDir) {
 		log.Info("serving web UI from disk", "dir", staticDir)

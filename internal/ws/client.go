@@ -17,17 +17,19 @@ type Client struct {
 	conn *websocket.Conn
 
 	mu      sync.RWMutex
+	host    string                   // ADR-014 selected host filter
 	subs    map[string]*StatsFilters // channel → optional filters (stats only)
-	send   chan Envelope
-	closed atomic.Bool
-	drops  atomic.Int32
+	send    chan Envelope
+	closed  atomic.Bool
+	drops   atomic.Int32
 }
 
 // NewClient wraps a websocket connection.
-func NewClient(hub *Hub, conn *websocket.Conn) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, host string) *Client {
 	c := &Client{
 		hub:  hub,
 		conn: conn,
+		host: host,
 		subs: map[string]*StatsFilters{
 			// Auto-subscribe lightweight channels; stats requires explicit subscribe.
 			ChannelEvents:     {},
@@ -37,6 +39,19 @@ func NewClient(hub *Hub, conn *websocket.Conn) *Client {
 		send: make(chan Envelope, clientSendBuffer),
 	}
 	return c
+}
+
+func (c *Client) hostFilter() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.host
+}
+
+// SetHost updates the client's host filter.
+func (c *Client) SetHost(host string) {
+	c.mu.Lock()
+	c.host = host
+	c.mu.Unlock()
 }
 
 func (c *Client) accepts(env Envelope) bool {
@@ -171,9 +186,27 @@ func (c *Client) handleClientMessage(msg ClientMessage) {
 	case ActionPing:
 		c.trySend(Envelope{Type: TypePong, Timestamp: nowTS()})
 	case ActionSubscribe:
+		if msg.Filters != nil && msg.Filters.Host != "" {
+			c.SetHost(msg.Filters.Host)
+		}
+		if msg.Host != "" {
+			c.SetHost(msg.Host)
+		}
 		c.subscribe(msg.Channel, msg.Filters)
 	case ActionUnsubscribe:
 		c.unsubscribe(msg.Channel)
+	case ActionSelectHost:
+		if msg.Host != "" {
+			c.SetHost(msg.Host)
+		} else if msg.Filters != nil && msg.Filters.Host != "" {
+			c.SetHost(msg.Filters.Host)
+		}
+		c.trySend(Envelope{
+			Type:      TypePong,
+			Host:      c.hostFilter(),
+			Timestamp: nowTS(),
+			Data:      map[string]string{"host": c.hostFilter()},
+		})
 	default:
 		c.trySend(Envelope{
 			Type:      TypeError,

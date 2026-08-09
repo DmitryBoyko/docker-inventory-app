@@ -32,6 +32,7 @@ const (
 // Envelope is the server→client frame.
 type Envelope struct {
 	Type      string `json:"type"`
+	Host      string `json:"host,omitempty"` // ADR-014 host name
 	Timestamp string `json:"timestamp"`
 	Data      any    `json:"data,omitempty"`
 }
@@ -40,6 +41,7 @@ type Envelope struct {
 type ClientMessage struct {
 	Action  string         `json:"action"`
 	Channel string         `json:"channel,omitempty"`
+	Host    string         `json:"host,omitempty"` // select_host / subscribe host filter
 	Filters *StatsFilters  `json:"filters,omitempty"`
 }
 
@@ -47,6 +49,7 @@ type ClientMessage struct {
 type StatsFilters struct {
 	Stack        string   `json:"stack,omitempty"`
 	ContainerIDs []string `json:"containerIds,omitempty"`
+	Host         string   `json:"host,omitempty"`
 }
 
 // StatsItem is one container sample on the wire.
@@ -82,4 +85,8 @@ type DockerEvent struct {
 type EventsStatus struct {
 	Connected bool   `json:"connected"`
 	Error     string `json:"error,omitempty"`
+	Host      string `json:"host,omitempty"`
 }
+
+// ActionSelectHost switches the client's host filter (ADR-014).
+const ActionSelectHost = "select_host"

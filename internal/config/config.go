@@ -23,7 +23,8 @@ const (
 // Config holds process configuration.
 type Config struct {
 	ListenAddr        string
-	DockerHost        string        // explicit override (flag / DOCKER_VISUALIZER_DOCKER_HOST)
+	DockerHost        string        // explicit override for single-host / default entry
+	DockerHosts       []HostSpec    // named registry (ADR-014); always ≥1 after Load
 	DockerConfigDir   string        // optional ~/.docker override
 	DockerTimeout     time.Duration // dial/request timeout for Engine calls
 	InventoryInterval time.Duration // container inventory poll (default 10s)
@@ -39,7 +40,8 @@ func Load(args []string, version string) (*Config, error) {
 	fs.SetOutput(os.Stderr)
 
 	listen := fs.String("listen", envOr(EnvListen, "127.0.0.1:8080"), "HTTP listen address (ADR-009 default 127.0.0.1)")
-	dockerHost := fs.String("docker-host", envOr(EnvDockerHost, ""), "Docker host URL (overrides DOCKER_HOST and context)")
+	dockerHost := fs.String("docker-host", envOr(EnvDockerHost, ""), "Docker host URL for default host (overrides DOCKER_HOST and context)")
+	dockerHosts := fs.String("docker-hosts", envOr(EnvDockerHosts, ""), "Named hosts name=url,name2=url (ADR-014); empty ⇒ single default")
 	dockerConfig := fs.String("docker-config", envOr(EnvConfigDir, ""), "Docker config directory (default: ~/.docker)")
 	timeoutStr := fs.String("docker-timeout", envOr(EnvTimeout, "5s"), "Timeout for Docker Engine requests")
 	invStr := fs.String("inventory-interval", envOr(EnvInventoryInterval, "10s"), "Container inventory refresh interval")
@@ -80,9 +82,15 @@ func Load(args []string, version string) (*Config, error) {
 		return nil, fmt.Errorf("system-interval must be positive")
 	}
 
+	hosts, err := ParseDockerHosts(*dockerHosts, *dockerHost)
+	if err != nil {
+		return nil, fmt.Errorf("docker-hosts: %w", err)
+	}
+
 	cfg := &Config{
 		ListenAddr:        *listen,
 		DockerHost:        *dockerHost,
+		DockerHosts:       hosts,
 		DockerConfigDir:   *dockerConfig,
 		DockerTimeout:     timeout,
 		InventoryInterval: inv,
@@ -95,6 +103,14 @@ func Load(args []string, version string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// DefaultHostName returns the first configured host name.
+func (c *Config) DefaultHostName() string {
+	if c == nil || len(c.DockerHosts) == 0 {
+		return DefaultHostName
+	}
+	return c.DockerHosts[0].Name
 }
 
 // AuthEnabled reports whether API/WS auth middleware should enforce a token.

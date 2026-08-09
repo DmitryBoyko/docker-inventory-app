@@ -2,9 +2,11 @@ import {
   clearAuthToken,
   getAuthToken,
   getInspectRedactDefault,
+  getSelectedHost,
   getTheme,
   setAuthToken,
   setInspectRedactDefault,
+  setSelectedHost,
   setTheme,
 } from './prefs'
 
@@ -32,6 +34,10 @@ Object.defineProperty(globalThis, 'document', {
   value: { documentElement: { dataset: {} as Record<string, string>, style: { colorScheme: '' } } },
   configurable: true,
 })
+Object.defineProperty(globalThis, 'window', {
+  value: { dispatchEvent: () => true },
+  configurable: true,
+})
 
 clearAuthToken()
 assert(getAuthToken() === '', 'token empty')
@@ -49,5 +55,10 @@ setInspectRedactDefault(false)
 assert(getInspectRedactDefault() === false, 'redact off')
 setInspectRedactDefault(true)
 assert(getInspectRedactDefault() === true, 'redact on')
+
+setSelectedHost(' lab ')
+assert(getSelectedHost() === 'lab', 'host trimmed')
+setSelectedHost('')
+assert(getSelectedHost() === '', 'host cleared')
 
 console.log('prefs.test.ts ok')

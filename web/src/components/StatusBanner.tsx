@@ -48,9 +48,12 @@ export function StatusBanner() {
       : ` · events polling${events.error ? ` (${events.error})` : ''}`
     : ''
 
+  const hostName = ready.data?.host
   return (
     <div className="banner ok">
-      Connected · {docker?.host}
+      Connected
+      {hostName ? ` · host ${hostName}` : ''}
+      {docker?.host ? ` · ${docker.host}` : ''}
       {docker?.apiVersion ? ` · API ${docker.apiVersion}` : ''}
       {docker?.osType ? ` · ${docker.osType}` : ''}
       {live.connected ? ' · ws' : ' · ws…'}

@@ -12,7 +12,7 @@ import (
 // ConnectionPublisher periodically pings the Engine and pushes connection.status.
 type ConnectionPublisher struct {
 	Docker   *docker.Client
-	Hub      *ws.Hub
+	Hub      ws.Bus
 	Interval time.Duration
 	Log      *slog.Logger
 }

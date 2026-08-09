@@ -1,4 +1,4 @@
-import { getAuthToken } from './prefs'
+import { getAuthToken, getSelectedHost } from './prefs'
 
 export type LogStreamHandle = { stop: () => void }
 
@@ -9,6 +9,8 @@ export function logsWsURL(id: string, opts: { tail: number; timestamps: boolean 
   if (opts.timestamps) u.searchParams.set('timestamps', 'true')
   const token = getAuthToken()
   if (token) u.searchParams.set('access_token', token)
+  const host = getSelectedHost()
+  if (host) u.searchParams.set('host', host)
   return u.toString()
 }
 

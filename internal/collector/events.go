@@ -19,7 +19,7 @@ import (
 // EventsCollector streams Docker events for cache invalidation (ADR-006).
 type EventsCollector struct {
 	Docker    *docker.Client
-	Hub       *ws.Hub
+	Hub       ws.Bus
 	Inventory *InventoryCollector
 	System    *SystemCollector
 	Coalesce  time.Duration

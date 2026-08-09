@@ -10,6 +10,7 @@ import (
 	"github.com/epm-games/docker-visualizer/internal/app"
 	"github.com/epm-games/docker-visualizer/internal/docker"
 	"github.com/epm-games/docker-visualizer/internal/domain"
+	"github.com/epm-games/docker-visualizer/internal/hosts"
 	"github.com/epm-games/docker-visualizer/internal/store"
 )
 
@@ -23,9 +24,12 @@ func testServer(t testing.TB, st *store.Store) *Server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = cli.Close() })
-	return &Server{
+	rt := &hosts.Runtime{
+		Name:       "default",
 		Docker:     cli,
+		Store:      st,
 		Containers: &app.ContainersService{Store: st},
+		Live:       &app.ContainerLiveService{Docker: cli, Store: st},
 		Stacks:     &app.StacksService{Store: st},
 		Networks:   &app.NetworksService{Store: st},
 		Volumes:    &app.VolumesService{Store: st},
@@ -33,7 +37,10 @@ func testServer(t testing.TB, st *store.Store) *Server {
 		System:     &app.SystemService{Store: st},
 		Graph:      &app.GraphService{Store: st},
 		Export:     &app.ExportService{Store: st},
-		Version:    "test",
+	}
+	return &Server{
+		Hosts:   hosts.ForTest("default", rt),
+		Version: "test",
 	}
 }
 

@@ -1056,7 +1056,7 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 
 - Optional auth when binding non-localhost ✅ (ADR-013, Settings UI token)  
 - Settings (intervals display, theme, redact default) ✅  
-- Multi-host (multiple Docker endpoints)  
+- Multi-host (multiple Docker endpoints) ✅ — ADR-014, `--docker-hosts`, `GET /api/v1/hosts`, `?host=`
 - Historical metrics (SQLite)  
 - Log stream WS ✅ — `GET /api/v1/containers/{id}/logs/ws`  
 - Swarm stack labels ✅ — `com.docker.stack.namespace` (+ service name)  

@@ -24,7 +24,7 @@ const defaultStatsConcurrency = 16
 type StatsCollector struct {
 	Docker      *docker.Client
 	Store       *store.Store
-	Hub         *ws.Hub
+	Hub         ws.Bus
 	Interval    time.Duration
 	Concurrency int
 	Log         *slog.Logger

@@ -12,10 +12,9 @@ import (
 )
 
 // handleContainerLogsWS streams follow logs for one container (V2).
-// Query: tail, timestamps, since. Auth via same /api middleware as REST.
 func (s *Server) handleContainerLogsWS(w http.ResponseWriter, r *http.Request) {
-	if s.Live == nil {
-		writeErr(w, http.StatusServiceUnavailable, "not_ready", "live container API not initialized")
+	rt := s.runtime(w, r)
+	if rt == nil {
 		return
 	}
 	id := r.PathValue("id")
@@ -43,7 +42,6 @@ func (s *Server) handleContainerLogsWS(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	// Client close / ping reader.
 	go func() {
 		defer cancel()
 		for {
@@ -56,6 +54,7 @@ func (s *Server) handleContainerLogsWS(w http.ResponseWriter, r *http.Request) {
 
 	_ = writeLogsWS(ctx, conn, map[string]any{
 		"type":      "container.logs.status",
+		"host":      rt.Name,
 		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
 		"data": map[string]any{
 			"id":        id,
@@ -64,12 +63,13 @@ func (s *Server) handleContainerLogsWS(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	err = s.Live.StreamLogs(ctx, id, opts, func(chunk string) error {
+	err = rt.Live.StreamLogs(ctx, id, opts, func(chunk string) error {
 		if chunk == "" {
 			return nil
 		}
 		return writeLogsWS(ctx, conn, map[string]any{
 			"type":      "container.logs",
+			"host":      rt.Name,
 			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
 			"data": map[string]any{
 				"id":   id,
@@ -78,19 +78,18 @@ func (s *Server) handleContainerLogsWS(w http.ResponseWriter, r *http.Request) {
 		})
 	})
 	if err != nil && ctx.Err() == nil {
+		code := "docker_error"
+		msg := err.Error()
 		if app.IsNotFound(err) {
-			_ = writeLogsWS(ctx, conn, map[string]any{
-				"type":      "error",
-				"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
-				"data":      map[string]string{"code": "not_found", "message": "container not found"},
-			})
-		} else {
-			_ = writeLogsWS(ctx, conn, map[string]any{
-				"type":      "error",
-				"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
-				"data":      map[string]string{"code": "docker_error", "message": err.Error()},
-			})
+			code = "not_found"
+			msg = "container not found"
 		}
+		_ = writeLogsWS(ctx, conn, map[string]any{
+			"type":      "error",
+			"host":      rt.Name,
+			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+			"data":      map[string]string{"code": code, "message": msg},
+		})
 	}
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 }

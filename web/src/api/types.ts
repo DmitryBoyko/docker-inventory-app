@@ -199,12 +199,24 @@ export type ConnectionStatus = {
   error?: string
 }
 
+export type HostInfo = {
+  name: string
+  endpoint: string
+  source: string
+  context?: string
+  isDefault: boolean
+  connected: boolean
+  error?: string
+}
+
 export type ReadyResponse = {
   ready: boolean
+  host?: string
   docker: ConnectionStatus
   events?: {
     connected: boolean
     error?: string | null
+    host?: string
   }
   timestamp: string
   error?: {
@@ -230,6 +242,8 @@ export type SystemSettings = {
   version: string
   commit: string
   uiEmbedded: boolean
+  defaultHost?: string
+  hosts?: HostInfo[]
   defaults: {
     inspectRedact: boolean
   }
