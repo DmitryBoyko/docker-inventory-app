@@ -4,10 +4,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { fetchVolumes } from '../api/client'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
+import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function VolumesPage() {
+  const t = useT()
   const live = useLiveState()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
@@ -33,21 +35,21 @@ export function VolumesPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Volumes</h1>
+        <h1>{t('volumes.title')}</h1>
         <p className="muted">
-          {rows.length} shown · snapshot {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
         </p>
       </div>
 
       <div className="toolbar">
         <input
           className="input"
-          placeholder="Search volume name…"
+          placeholder={t('volumes.search')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select className="select" value={stack} onChange={(e) => setStack(e.target.value)}>
-          <option value="">All stacks</option>
+          <option value="">{t('common.allStacks')}</option>
           {stacks.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -62,12 +64,12 @@ export function VolumesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Driver</th>
-              <th className="num">Usage</th>
-              <th className="num">Containers</th>
-              <th>Stacks</th>
-              <th>Shared</th>
+              <th>{t('common.name')}</th>
+              <th>{t('common.driver')}</th>
+              <th className="num">{t('common.usage')}</th>
+              <th className="num">{t('common.containers')}</th>
+              <th>{t('common.stacks')}</th>
+              <th>{t('common.shared')}</th>
             </tr>
           </thead>
           <tbody>
@@ -106,13 +108,13 @@ export function VolumesPage() {
                         </span>
                       ))}
                 </td>
-                <td>{v.shared ? 'yes' : '—'}</td>
+                <td>{v.shared ? t('common.yes') : '—'}</td>
               </tr>
             ))}
             {!query.isLoading && rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="muted center">
-                  No volumes match filters.
+                  {t('volumes.empty')}
                 </td>
               </tr>
             ) : null}

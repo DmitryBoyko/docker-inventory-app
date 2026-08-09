@@ -34,11 +34,11 @@ function DiffView({ diff, t }: { diff: SnapshotDiff; t: (k: string) => string })
       <h3>
         {diff.leftId} → {diff.rightId}
       </h3>
-      <ChangesBlock title="Containers" items={diff.containers} t={t} />
-      <ChangesBlock title="Images" items={diff.images} t={t} />
-      <ChangesBlock title="Volumes" items={diff.volumes} t={t} />
-      <ChangesBlock title="Networks" items={diff.networks} t={t} />
-      <ChangesBlock title="Stacks" items={diff.stacks} t={t} />
+      <ChangesBlock title={t('common.containers')} items={diff.containers} t={t} />
+      <ChangesBlock title={t('nav.images')} items={diff.images} t={t} />
+      <ChangesBlock title={t('nav.volumes')} items={diff.volumes} t={t} />
+      <ChangesBlock title={t('nav.networks')} items={diff.networks} t={t} />
+      <ChangesBlock title={t('common.stacks')} items={diff.stacks} t={t} />
     </div>
   )
 }
@@ -104,11 +104,11 @@ export function SnapshotsPage() {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Created</th>
-              <th>Host</th>
-              <th>Label</th>
-              <th>Counts</th>
+              <th>{t('common.id')}</th>
+              <th>{t('common.created')}</th>
+              <th>{t('common.host')}</th>
+              <th>{t('common.label')}</th>
+              <th>{t('common.counts')}</th>
               <th />
             </tr>
           </thead>

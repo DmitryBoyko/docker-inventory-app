@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchDiagnostics } from '../api/client'
 import type { FindingSeverity } from '../api/types'
-import { useT } from '../i18n'
+import { tOr, useT } from '../i18n'
 
 const sevClass: Record<FindingSeverity, string> = {
   INFO: 'sev-info',
@@ -53,14 +53,17 @@ export function DiagnosticsPage() {
               <span className={`pill ${sevClass[f.severity]}`}>
                 {t(`diag.severity.${f.severity.toLowerCase()}` as 'diag.severity.info')}
               </span>
-              <strong>{f.title}</strong>
+              <strong>
+                {tOr(t, f.titleKey, f.title)}
+                {f.entity.name ? ` — ${f.entity.name}` : ''}
+              </strong>
             </div>
-            <p>{f.description}</p>
+            <p>{tOr(t, f.descriptionKey, f.description)}</p>
             <p className="muted">
-              <strong>{t('diag.why')}:</strong> {f.reason}
+              <strong>{t('diag.why')}:</strong> {tOr(t, f.reasonKey, f.reason)}
             </p>
             <p className="muted">
-              <strong>{t('diag.recommend')}:</strong> {f.recommendation}
+              <strong>{t('diag.recommend')}:</strong> {tOr(t, f.recommendationKey, f.recommendation)}
             </p>
             {f.relatedCommands && f.relatedCommands.length > 0 && (
               <p className="mono small muted">{f.relatedCommands.join(' · ')}</p>

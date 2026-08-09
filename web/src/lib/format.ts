@@ -1,6 +1,26 @@
 import type { AggregateBytes, ByteMetric } from '../api/types'
+import { en } from '../i18n/locales/en'
+import { ru } from '../i18n/locales/ru'
+import { getLocale } from './prefs'
 
 const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'] as const
+
+function tr(key: string, params?: Record<string, string | number>): string {
+  let locale: 'en' | 'ru' = 'en'
+  try {
+    locale = getLocale()
+  } catch {
+    locale = 'en'
+  }
+  const catalog = locale === 'ru' ? ru : en
+  let text = catalog[key] ?? en[key] ?? key
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replaceAll(`{${k}}`, String(v))
+    }
+  }
+  return text
+}
 
 export function formatBytes(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return '—'
@@ -18,10 +38,10 @@ export function formatBytes(n: number | null | undefined): string {
 export function formatByteMetric(m: ByteMetric | AggregateBytes | undefined): string {
   if (!m) return '—'
   if (!m.available || m.bytes == null) {
-    return m.reason ? `n/a (${m.reason})` : 'n/a'
+    return m.reason ? tr('format.naReason', { reason: m.reason }) : tr('common.na')
   }
   const base = formatBytes(m.bytes)
-  if ('partial' in m && m.partial) return `${base} (partial)`
+  if ('partial' in m && m.partial) return tr('format.partialBytes', { value: base })
   return base
 }
 

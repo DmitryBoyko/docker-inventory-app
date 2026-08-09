@@ -1,11 +1,13 @@
 import ReactECharts from 'echarts-for-react'
 import { useMemo } from 'react'
+import { useT } from '../i18n'
 import { formatBytes, formatCpu } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 import { HistoryCharts } from './HistoryCharts'
 
 /** Live WS tip (~1 min) plus SQLite history (ADR-015). */
 export function LiveCharts() {
+  const t = useT()
   const live = useLiveState()
   const option = useMemo(() => {
     const labels = live.history.map((p) =>
@@ -17,7 +19,7 @@ export function LiveCharts() {
       grid: { left: 48, right: 48, top: 28, bottom: 28 },
       tooltip: { trigger: 'axis' },
       legend: {
-        data: ['CPU %', 'Memory'],
+        data: [t('charts.cpuSeries'), t('charts.memSeries')],
         textStyle: { color: '#8b9bb0' },
         top: 0,
       },
@@ -30,13 +32,13 @@ export function LiveCharts() {
       yAxis: [
         {
           type: 'value',
-          name: 'CPU',
+          name: t('common.cpu'),
           axisLabel: { color: '#8b9bb0', formatter: (v: number) => `${v}` },
           splitLine: { lineStyle: { color: '#2a3544' } },
         },
         {
           type: 'value',
-          name: 'Mem',
+          name: t('common.memory'),
           axisLabel: {
             color: '#8b9bb0',
             formatter: (v: number) => formatBytes(v),
@@ -46,7 +48,7 @@ export function LiveCharts() {
       ],
       series: [
         {
-          name: 'CPU %',
+          name: t('charts.cpuSeries'),
           type: 'line',
           showSymbol: false,
           data: live.history.map((p) => Number(p.cpu.toFixed(2))),
@@ -54,7 +56,7 @@ export function LiveCharts() {
           areaStyle: { color: 'rgba(61,184,255,0.12)' },
         },
         {
-          name: 'Memory',
+          name: t('charts.memSeries'),
           type: 'line',
           yAxisIndex: 1,
           showSymbol: false,
@@ -63,7 +65,7 @@ export function LiveCharts() {
         },
       ],
     }
-  }, [live.history])
+  }, [live.history, t])
 
   const last = live.history[live.history.length - 1]
 
@@ -71,20 +73,20 @@ export function LiveCharts() {
     <div className="charts-stack">
       <HistoryCharts
         scope="host"
-        title="Host CPU / RAM (1h)"
+        title={t('charts.hostTitle')}
         rangeHours={1}
         liveTip={live.history}
       />
       <section className="panel">
         <div className="panel-head">
-          <h2>Live tip</h2>
+          <h2>{t('charts.liveTip')}</h2>
           <span className="muted tiny">
-            {live.connected ? 'websocket' : 'ws reconnecting…'}
+            {live.connected ? t('charts.websocket') : t('charts.wsReconnect')}
             {last ? ` · ${formatCpu(last.cpu)} · ${formatBytes(last.mem)}` : null}
           </span>
         </div>
         {live.history.length < 2 ? (
-          <p className="muted">Waiting for stats samples…</p>
+          <p className="muted">{t('charts.waiting')}</p>
         ) : (
           <ReactECharts option={option} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
         )}

@@ -1,0 +1,16 @@
+---
+description: Docker Visualizer — compact project conventions
+globs: "**/*.{go,ts,tsx,yml,yaml,md}"
+alwaysApply: false
+---
+
+# docker-visualizer
+
+- Read-only Docker: React → Go `/api/v1` → Engine. No `POST /exec` / PTY.
+- Packages: `internal/{commands,findings,snapshots,provenance,httpapi,hosts,app}`.
+- i18n: `web/src/i18n` EN/RU; never translate docker cmds / entity names / API fields.
+- CLI: generate+copy only (Bash|PS|CMD), risk levels on defs.
+- Snapshots: sanitized, no Env/secrets; `--snapshots-dir`.
+- Diagnostics: `/api/v1/diagnostics` ≠ `/system/diagnostics` (support dump).
+- Tests: `go test ./internal/...`; UI `cd web && npm test && npm run build`.
+- Prefer small diffs; don't rewrite working inventory/WS.

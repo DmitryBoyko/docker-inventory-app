@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { fetchProvenance } from '../api/client'
 import type { ProvenanceSpec } from '../api/types'
-import { useT } from '../i18n'
+import { tOr, useT } from '../i18n'
 
 type Props = {
   provenanceId: string
@@ -50,7 +50,7 @@ export function ProvenanceHint({ provenanceId, displayedValue }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="panel-head">
-              <h3>{spec ? (t(spec.titleKey) !== spec.titleKey ? t(spec.titleKey) : spec.title) : t('prov.title')}</h3>
+              <h3>{spec ? tOr(t, spec.titleKey, spec.title) : t('prov.title')}</h3>
               <button type="button" className="btn" onClick={() => setOpen(false)}>
                 {t('prov.close')}
               </button>
@@ -72,12 +72,12 @@ export function ProvenanceHint({ provenanceId, displayedValue }: Props) {
                 {spec.transformation && (
                   <div>
                     <dt>{t('prov.transform')}</dt>
-                    <dd>{spec.transformation}</dd>
+                    <dd>{spec.transformationKey ? tOr(t, spec.transformationKey, spec.transformation) : spec.transformation}</dd>
                   </div>
                 )}
                 {displayedValue && (
                   <div>
-                    <dt>UI</dt>
+                    <dt>{t('prov.ui')}</dt>
                     <dd>{displayedValue}</dd>
                   </div>
                 )}
@@ -89,7 +89,7 @@ export function ProvenanceHint({ provenanceId, displayedValue }: Props) {
                 )}
                 <div>
                   <dt>{t('prov.title')}</dt>
-                  <dd>{t(spec.descriptionKey) !== spec.descriptionKey ? t(spec.descriptionKey) : spec.description}</dd>
+                  <dd>{tOr(t, spec.descriptionKey, spec.description)}</dd>
                 </div>
               </dl>
             )}

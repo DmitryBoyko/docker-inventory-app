@@ -25,6 +25,12 @@ function translate(locale: Locale, key: string, params?: Record<string, string |
   return text
 }
 
+/** Prefer localized key; if missing in catalogs, use provided English/API fallback. */
+export function tOr(t: (key: string, params?: Record<string, string | number>) => string, key: string, fallback: string, params?: Record<string, string | number>) {
+  const v = t(key, params)
+  return v === key ? fallback : v
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => getLocale())
 

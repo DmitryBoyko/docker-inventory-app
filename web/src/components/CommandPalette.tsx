@@ -57,13 +57,13 @@ export function CommandPalette({ open, onClose }: Props) {
     for (const c of containersQ.data?.data ?? []) {
       base.push({
         id: `open-${c.id}`,
-        label: `${t('diag.open')} ${c.name}`,
+        label: t('palette.openEntity', { name: c.name }),
         path: `/containers/${encodeURIComponent(c.id)}`,
         keywords: `open container ${c.name} ${c.idShort}`,
       })
       base.push({
         id: `cli-${c.id}`,
-        label: `CLI ${c.name}`,
+        label: t('palette.cliEntity', { name: c.name }),
         path: `/containers/${encodeURIComponent(c.id)}?tab=commands`,
         keywords: `inspect logs stats cli commands ${c.name}`,
       })

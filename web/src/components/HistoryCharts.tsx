@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import ReactECharts from 'echarts-for-react'
 import { useMemo } from 'react'
 import { ApiError, fetchMetricsHistory } from '../api/client'
+import { useT } from '../i18n'
 import { formatBytes, formatCpu } from '../lib/format'
 import { getSelectedHost } from '../lib/prefs'
 
@@ -23,10 +24,12 @@ function rangeISO(hours: number) {
 export function HistoryCharts({
   scope,
   id,
-  title = 'History',
+  title,
   rangeHours = 1,
   liveTip,
 }: Props) {
+  const t = useT()
+  const chartTitle = title ?? t('charts.history')
   const host = getSelectedHost() || 'default'
   const window = rangeISO(rangeHours)
   const q = useQuery({
@@ -65,7 +68,7 @@ export function HistoryCharts({
       grid: { left: 48, right: 48, top: 28, bottom: 28 },
       tooltip: { trigger: 'axis' },
       legend: {
-        data: ['CPU %', 'Memory'],
+        data: [t('charts.cpuSeries'), t('charts.memSeries')],
         textStyle: { color: '#8b9bb0' },
         top: 0,
       },
@@ -78,13 +81,13 @@ export function HistoryCharts({
       yAxis: [
         {
           type: 'value',
-          name: 'CPU',
+          name: t('common.cpu'),
           axisLabel: { color: '#8b9bb0' },
           splitLine: { lineStyle: { color: '#2a3544' } },
         },
         {
           type: 'value',
-          name: 'Mem',
+          name: t('common.memory'),
           axisLabel: {
             color: '#8b9bb0',
             formatter: (v: number) => formatBytes(v),
@@ -94,7 +97,7 @@ export function HistoryCharts({
       ],
       series: [
         {
-          name: 'CPU %',
+          name: t('charts.cpuSeries'),
           type: 'line',
           showSymbol: false,
           data: points.map((p) => Number(p.cpu.toFixed(2))),
@@ -102,7 +105,7 @@ export function HistoryCharts({
           areaStyle: { color: 'rgba(61,184,255,0.12)' },
         },
         {
-          name: 'Memory',
+          name: t('charts.memSeries'),
           type: 'line',
           yAxisIndex: 1,
           showSymbol: false,
@@ -111,7 +114,7 @@ export function HistoryCharts({
         },
       ],
     }
-  }, [points, rangeHours])
+  }, [points, rangeHours, t])
 
   const last = points[points.length - 1]
   const disabled = q.error instanceof ApiError && q.error.code === 'metrics_disabled'
@@ -119,18 +122,18 @@ export function HistoryCharts({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>{title}</h2>
+        <h2>{chartTitle}</h2>
         <span className="muted tiny">
-          last {rangeHours}h · SQLite
+          {t('charts.lastHours', { n: rangeHours })}
           {last ? ` · ${formatCpu(last.cpu)} · ${formatBytes(last.mem)}` : null}
         </span>
       </div>
       {disabled ? (
-        <p className="muted">Historical metrics disabled (`--metrics-db=off`).</p>
+        <p className="muted">{t('charts.disabled')}</p>
       ) : q.isError ? (
         <p className="muted">{(q.error as Error).message}</p>
       ) : points.length < 2 ? (
-        <p className="muted">Collecting history… (samples every ~10s)</p>
+        <p className="muted">{t('charts.collecting')}</p>
       ) : (
         <ReactECharts option={option} style={{ height: 260 }} opts={{ renderer: 'canvas' }} />
       )}

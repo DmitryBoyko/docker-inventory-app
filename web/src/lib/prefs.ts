@@ -14,15 +14,23 @@ export const HOST_CHANGE_EVENT = 'dv:host-change'
 export type CliShell = 'bash' | 'powershell' | 'cmd'
 
 export function detectBrowserLocale(): Locale {
-  const lang = (navigator.language || 'en').toLowerCase()
-  if (lang.startsWith('ru')) return 'ru'
+  try {
+    const lang = (navigator.language || 'en').toLowerCase()
+    if (lang.startsWith('ru')) return 'ru'
+  } catch {
+    /* node / tests */
+  }
   return 'en'
 }
 
 export function getLocale(): Locale {
-  const v = localStorage.getItem(KEY_LOCALE)
-  if (v === 'ru' || v === 'en') return v
-  return detectBrowserLocale()
+  try {
+    const v = localStorage.getItem(KEY_LOCALE)
+    if (v === 'ru' || v === 'en') return v
+    return detectBrowserLocale()
+  } catch {
+    return 'en'
+  }
 }
 
 export function setLocale(locale: Locale) {

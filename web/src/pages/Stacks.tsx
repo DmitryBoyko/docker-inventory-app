@@ -3,10 +3,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchStacks } from '../api/client'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function StacksPage() {
+  const t = useT()
   const live = useLiveState()
   const [selected, setSelected] = useState('')
   const query = useQuery({
@@ -20,9 +22,9 @@ export function StacksPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Stacks</h1>
+        <h1>{t('stacks.title')}</h1>
         <p className="muted">
-          {stacks.length} stacks · snapshot {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.stacks')}: {stacks.length} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
         </p>
       </div>
 
@@ -34,14 +36,14 @@ export function StacksPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Stack</th>
-              <th className="num">Running</th>
-              <th className="num">CPU</th>
-              <th className="num">Memory</th>
-              <th className="num">Writable</th>
-              <th className="num">Volumes</th>
-              <th className="num">Unhealthy</th>
-              <th className="num">Restarted</th>
+              <th>{t('common.stack')}</th>
+              <th className="num">{t('stacks.running')}</th>
+              <th className="num">{t('common.cpu')}</th>
+              <th className="num">{t('common.memory')}</th>
+              <th className="num">{t('stacks.writable')}</th>
+              <th className="num">{t('stacks.volumes')}</th>
+              <th className="num">{t('stacks.unhealthy')}</th>
+              <th className="num">{t('stacks.restarted')}</th>
             </tr>
           </thead>
           <tbody>
@@ -52,13 +54,13 @@ export function StacksPage() {
                     {s.name}
                   </button>
                   <div className="muted tiny">
-                    {s.containers.length} containers ·{' '}
+                    {t('stacks.containersCount', { n: s.containers.length })} ·{' '}
                     <Link className="text-link" to={`/containers?stack=${encodeURIComponent(s.name)}`}>
-                      containers
+                      {t('common.containers').toLowerCase()}
                     </Link>
                     {' · '}
                     <Link className="text-link" to={`/graph?scope=stack&stack=${encodeURIComponent(s.name)}`}>
-                      graph
+                      {t('common.graph')}
                     </Link>
                   </div>
                 </td>
@@ -76,7 +78,7 @@ export function StacksPage() {
             {!query.isLoading && stacks.length === 0 ? (
               <tr>
                 <td colSpan={8} className="muted center">
-                  No stacks yet.
+                  {t('stacks.empty')}
                 </td>
               </tr>
             ) : null}

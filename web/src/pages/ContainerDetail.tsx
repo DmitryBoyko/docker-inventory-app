@@ -59,7 +59,7 @@ export function ContainerDetailPage() {
       return
     }
     setLiveText('')
-    setLiveStatus('connecting…')
+    setLiveStatus(t('detail.connecting'))
     const handle = startLogStream(
       id,
       { tail, timestamps },
@@ -72,7 +72,7 @@ export function ContainerDetailPage() {
       (st) => setLiveStatus(st),
     )
     return () => handle.stop()
-  }, [tab, followLive, id, tail, timestamps])
+  }, [tab, followLive, id, tail, timestamps, t])
 
   useEffect(() => {
     if (followLive && logRef.current) {
@@ -97,7 +97,7 @@ export function ContainerDetailPage() {
       <div className="page">
         <div className="banner danger">{(containerQ.error as Error).message}</div>
         <Link className="text-link" to="/containers">
-          ← Containers
+          {t('detail.back')}
         </Link>
       </div>
     )
@@ -108,14 +108,18 @@ export function ContainerDetailPage() {
       <div className="page-head">
         <div>
           <Link className="text-link muted tiny" to="/containers">
-            ← Containers
+            {t('detail.back')}
           </Link>
           <h1 className="mono">{c?.name ?? id}</h1>
           <p className="muted">
             {c ? (
               <>
-                <span className={`pill state-${c.state}`}>{c.state}</span>{' '}
-                <span className={`pill health-${c.health}`}>{c.health}</span>
+                <span className={`pill state-${c.state}`}>
+                  {t(`containers.state.${c.state}` as 'containers.state.running')}
+                </span>{' '}
+                <span className={`pill health-${c.health}`}>
+                  {t(`containers.health.${c.health}` as 'containers.health.healthy')}
+                </span>
                 {' · '}
                 {c.stack}
                 {c.service ? ` / ${c.service}` : ''}
@@ -123,7 +127,7 @@ export function ContainerDetailPage() {
                 <span className="mono">{c.idShort}</span>
               </>
             ) : (
-              'Loading…'
+              t('common.loading')
             )}
           </p>
         </div>
@@ -146,11 +150,11 @@ export function ContainerDetailPage() {
         <section className="panel">
           <dl className="kv">
             <div>
-              <dt>Image</dt>
+              <dt>{t('detail.image')}</dt>
               <dd className="mono">{c.image}</dd>
             </div>
             <div>
-              <dt>Stack / service</dt>
+              <dt>{t('detail.stackService')}</dt>
               <dd>
                 <Link className="text-link" to={`/containers?stack=${encodeURIComponent(c.stack)}`}>
                   {c.stack}
@@ -160,23 +164,23 @@ export function ContainerDetailPage() {
             </div>
             <div>
               <dt>
-                Restarts <ProvenanceHint provenanceId="container.restartCount" displayedValue={String(c.restartCount)} />
+                {t('detail.restarts')} <ProvenanceHint provenanceId="container.restartCount" displayedValue={String(c.restartCount)} />
               </dt>
               <dd>{c.restartCount}</dd>
             </div>
             <div>
-              <dt>Uptime</dt>
+              <dt>{t('detail.uptime')}</dt>
               <dd>{formatUptime(c.uptimeSeconds)}</dd>
             </div>
             <div>
               <dt>
-                Writable layer{' '}
+                {t('detail.writable')}{' '}
                 <ProvenanceHint provenanceId="container.writableLayer" displayedValue={formatByteMetric(c.writableLayer)} />
               </dt>
               <dd>{formatByteMetric(c.writableLayer)}</dd>
             </div>
             <div>
-              <dt>Full ID</dt>
+              <dt>{t('detail.fullId')}</dt>
               <dd className="mono">{c.id}</dd>
             </div>
           </dl>
@@ -189,10 +193,10 @@ export function ContainerDetailPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Host</th>
-                  <th>Container</th>
-                  <th>Proto</th>
-                  <th>Exposure</th>
+                  <th>{t('detail.host')}</th>
+                  <th>{t('detail.containerPort')}</th>
+                  <th>{t('detail.proto')}</th>
+                  <th>{t('detail.exposure')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,7 +214,7 @@ export function ContainerDetailPage() {
               </tbody>
             </table>
           ) : (
-            <p className="muted">No published ports.</p>
+            <p className="muted">{t('detail.noPorts')}</p>
           )}
         </section>
       ) : null}
@@ -221,9 +225,9 @@ export function ContainerDetailPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Network</th>
-                  <th>IP</th>
-                  <th>Gateway</th>
+                  <th>{t('detail.network')}</th>
+                  <th>{t('detail.ip')}</th>
+                  <th>{t('detail.gateway')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,7 +251,7 @@ export function ContainerDetailPage() {
               </tbody>
             </table>
           ) : (
-            <p className="muted">No network endpoints.</p>
+            <p className="muted">{t('detail.noEndpoints')}</p>
           )}
         </section>
       ) : null}
@@ -258,10 +262,10 @@ export function ContainerDetailPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Name / source</th>
-                  <th>Destination</th>
-                  <th>RW</th>
+                  <th>{t('detail.mountType')}</th>
+                  <th>{t('detail.mountSource')}</th>
+                  <th>{t('detail.mountDest')}</th>
+                  <th>{t('detail.rw')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -284,7 +288,7 @@ export function ContainerDetailPage() {
               </tbody>
             </table>
           ) : (
-            <p className="muted">No mounts.</p>
+            <p className="muted">{t('detail.noMounts')}</p>
           )}
         </section>
       ) : null}
@@ -296,13 +300,13 @@ export function ContainerDetailPage() {
               <dl className="kv">
                 <div>
                   <dt>
-                    CPU <ProvenanceHint provenanceId="container.cpuPercent" displayedValue={formatCpu(c.stats.cpuPercent)} />
+                    {t('detail.cpu')} <ProvenanceHint provenanceId="container.cpuPercent" displayedValue={formatCpu(c.stats.cpuPercent)} />
                   </dt>
                   <dd>{formatCpu(c.stats.cpuPercent)}</dd>
                 </div>
                 <div>
                   <dt>
-                    Memory{' '}
+                    {t('detail.memory')}{' '}
                     <ProvenanceHint
                       provenanceId="container.memoryBytes"
                       displayedValue={formatBytes(c.stats.memoryBytes)}
@@ -315,7 +319,7 @@ export function ContainerDetailPage() {
                 </div>
                 <div>
                   <dt>
-                    Net I/O <ProvenanceHint provenanceId="container.networkIO" />
+                    {t('detail.netIo')} <ProvenanceHint provenanceId="container.networkIO" />
                   </dt>
                   <dd>
                     rx {formatBytes(c.stats.networkRxBytes)} · tx {formatBytes(c.stats.networkTxBytes)}
@@ -323,7 +327,7 @@ export function ContainerDetailPage() {
                 </div>
                 <div>
                   <dt>
-                    Block I/O <ProvenanceHint provenanceId="container.blockIO" />
+                    {t('detail.blockIo')} <ProvenanceHint provenanceId="container.blockIO" />
                   </dt>
                   <dd>
                     read {formatBytes(c.stats.blockReadBytes)} · write{' '}
@@ -332,13 +336,13 @@ export function ContainerDetailPage() {
                 </div>
               </dl>
             ) : (
-              <p className="muted">No stats sample (container may be stopped).</p>
+              <p className="muted">{t('detail.noStats')}</p>
             )}
           </section>
           <HistoryCharts
             scope="container"
             id={c.id}
-            title="Container CPU / RAM (1h)"
+            title={t('detail.historyTitle')}
             rangeHours={1}
           />
         </>
@@ -347,12 +351,12 @@ export function ContainerDetailPage() {
       {tab === 'logs' ? (
         <section className="panel">
           <div className="banner info" style={{ border: 'none', margin: '0 0 0.75rem', padding: 0 }}>
-            Logs are not stored by this app.
-            {followLive ? ` · stream: ${liveStatus || '…'}` : ' · snapshot mode'}
+            {t('detail.logsNotStored')}
+            {followLive ? ` · ${t('detail.stream')}: ${liveStatus || '…'}` : ` · ${t('detail.snapshotMode')}`}
           </div>
           <div className="toolbar">
             <label className="check-row">
-              Tail
+              {t('detail.tail')}
               <input
                 className="input"
                 style={{ minWidth: 80, flex: 'none', width: 90 }}
@@ -369,7 +373,7 @@ export function ContainerDetailPage() {
                 checked={timestamps}
                 onChange={(e) => setTimestamps(e.target.checked)}
               />
-              Timestamps
+              {t('detail.timestamps')}
             </label>
             <label className="check-row">
               <input
@@ -377,11 +381,11 @@ export function ContainerDetailPage() {
                 checked={followLive}
                 onChange={(e) => setFollowLive(e.target.checked)}
               />
-              Live stream
+              {t('detail.liveStream')}
             </label>
             {!followLive ? (
               <button type="button" className="btn" onClick={() => void logsQ.refetch()}>
-                Refresh
+                {t('common.refresh')}
               </button>
             ) : null}
           </div>
@@ -389,14 +393,14 @@ export function ContainerDetailPage() {
             <div className="banner danger">{(logsQ.error as Error).message}</div>
           ) : null}
           {!followLive && logsQ.data?.data.truncated ? (
-            <div className="banner info">Output truncated to size limit.</div>
+            <div className="banner info">{t('detail.truncated')}</div>
           ) : null}
           <pre className="log-view" ref={logRef}>
             {followLive
-              ? liveText || (liveStatus === 'live' ? '(waiting for lines…)' : 'Connecting…')
+              ? liveText || (liveStatus === 'live' ? t('detail.waitingLines') : t('detail.connecting'))
               : logsQ.isLoading
-                ? 'Loading…'
-                : logsQ.data?.data.text || '(empty)'}
+                ? t('common.loading')
+                : logsQ.data?.data.text || t('detail.empty')}
           </pre>
         </section>
       ) : null}
@@ -406,15 +410,15 @@ export function ContainerDetailPage() {
           <div className="toolbar">
             <label className="check-row">
               <input type="checkbox" checked={redact} onChange={(e) => setRedact(e.target.checked)} />
-              Redact secrets (recommended)
+              {t('detail.redact')}
             </label>
             <button type="button" className="btn" onClick={() => void inspectQ.refetch()}>
-              Refresh
+              {t('common.refresh')}
             </button>
           </div>
           {!redact ? (
             <div className="banner danger">
-              Redaction is off — Env and secret labels may be visible.
+              {t('detail.redactOff')}
             </div>
           ) : null}
           {inspectQ.isError ? (
@@ -422,13 +426,13 @@ export function ContainerDetailPage() {
           ) : null}
           {inspectQ.data?.data.redactedFields?.length ? (
             <p className="muted tiny">
-              Redacted: {inspectQ.data.data.redactedFields.slice(0, 12).join(', ')}
+              {t('detail.redacted')}: {inspectQ.data.data.redactedFields.slice(0, 12).join(', ')}
               {inspectQ.data.data.redactedFields.length > 12 ? '…' : ''}
             </p>
           ) : null}
           <pre className="log-view">
             {inspectQ.isLoading
-              ? 'Loading…'
+              ? t('common.loading')
               : JSON.stringify(inspectQ.data?.data.inspect ?? null, null, 2)}
           </pre>
         </section>

@@ -4,10 +4,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { fetchImages } from '../api/client'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
+import { useT } from '../i18n'
 import { formatAgeMs, formatBytes } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function ImagesPage() {
+  const t = useT()
   const live = useLiveState()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
@@ -25,23 +27,23 @@ export function ImagesPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Images</h1>
+        <h1>{t('images.title')}</h1>
         <p className="muted">
-          {rows.length} shown · snapshot {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
         </p>
       </div>
 
       <div className="toolbar">
         <input
           className="input"
-          placeholder="Search tag, id, container…"
+          placeholder={t('images.search')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select className="select" value={dangling} onChange={(e) => setDangling(e.target.value)}>
-          <option value="">All images</option>
-          <option value="false">Tagged</option>
-          <option value="true">Dangling</option>
+          <option value="">{t('images.all')}</option>
+          <option value="false">{t('images.tagged')}</option>
+          <option value="true">{t('images.danglingFilter')}</option>
         </select>
       </div>
 
@@ -51,12 +53,12 @@ export function ImagesPage() {
         <table className="table dense">
           <thead>
             <tr>
-              <th>Tags</th>
-              <th className="num">Size</th>
-              <th className="num">Shared</th>
-              <th className="num">Containers</th>
-              <th>Dangling</th>
-              <th>ID</th>
+              <th>{t('images.tags')}</th>
+              <th className="num">{t('common.size')}</th>
+              <th className="num">{t('common.shared')}</th>
+              <th className="num">{t('common.containers')}</th>
+              <th>{t('images.dangling')}</th>
+              <th>{t('common.id')}</th>
             </tr>
           </thead>
           <tbody>
@@ -87,7 +89,7 @@ export function ImagesPage() {
                   ))}
                   {(img.containers ?? []).length === 0 ? String(img.containerCount) : ''}
                 </td>
-                <td>{img.dangling ? <span className="pill health-unhealthy">dangling</span> : '—'}</td>
+                <td>{img.dangling ? <span className="pill health-unhealthy">{t('images.dangling')}</span> : '—'}</td>
                 <td className="mono">{img.idShort}</td>
               </tr>
               )
@@ -95,7 +97,7 @@ export function ImagesPage() {
             {!query.isLoading && rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="muted center">
-                  No images match filters.
+                  {t('images.empty')}
                 </td>
               </tr>
             ) : null}

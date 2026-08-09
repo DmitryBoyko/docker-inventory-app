@@ -1,0 +1,10 @@
+# Index soft-exclude (still @-able)
+docs/idea.md
+docs/next-levels.md
+docs/correct-idea.md
+docs/implementation-plan.md
+testdata/
+openapi.yaml
+internal/uiembed/dist/**
+!internal/uiembed/dist/index.html
+*.tsbuildinfo

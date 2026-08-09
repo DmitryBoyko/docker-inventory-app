@@ -1,0 +1,16 @@
+# Docker Visualizer — hard AI block
+.env
+.env.*
+**/node_modules/
+web/node_modules/
+web/dist/
+bin/
+data/
+*.exe
+*.dll
+*.test
+*.out
+go.sum
+web/package-lock.json
+**/*.map
+**/*.wasm

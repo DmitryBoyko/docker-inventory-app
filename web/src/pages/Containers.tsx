@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchContainers } from '../api/client'
+import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function ContainersPage() {
+  const t = useT()
   const live = useLiveState()
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
@@ -45,30 +47,31 @@ export function ContainersPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Containers</h1>
+        <h1>{t('containers.title')}</h1>
         <p className="muted">
-          {rows.length} shown · snapshot {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} · {t('common.snapshot')}{' '}
+          {formatAgeMs(query.data?.snapshotAgeMs)}
         </p>
       </div>
 
       <div className="toolbar">
         <input
           className="input"
-          placeholder="Search name, image, id, stack…"
+          placeholder={t('containers.search')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select className="select" value={state} onChange={(e) => setState(e.target.value)}>
-          <option value="">All states</option>
-          <option value="running">running</option>
-          <option value="exited">exited</option>
-          <option value="created">created</option>
-          <option value="paused">paused</option>
-          <option value="restarting">restarting</option>
-          <option value="dead">dead</option>
+          <option value="">{t('containers.allStates')}</option>
+          <option value="running">{t('containers.state.running')}</option>
+          <option value="exited">{t('containers.state.exited')}</option>
+          <option value="created">{t('containers.state.created')}</option>
+          <option value="paused">{t('containers.state.paused')}</option>
+          <option value="restarting">{t('containers.state.restarting')}</option>
+          <option value="dead">{t('containers.state.dead')}</option>
         </select>
         <select className="select" value={stack} onChange={(e) => setStack(e.target.value)}>
-          <option value="">All stacks</option>
+          <option value="">{t('common.allStacks')}</option>
           {stacks.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -85,18 +88,18 @@ export function ContainersPage() {
         <table className="table dense">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Stack</th>
-              <th>Service</th>
-              <th>State</th>
-              <th>Health</th>
-              <th className="num">CPU</th>
-              <th className="num">Memory</th>
-              <th className="num">Writable</th>
-              <th className="num">Restarts</th>
-              <th className="num">Uptime</th>
-              <th>Image</th>
-              <th>ID</th>
+              <th>{t('common.name')}</th>
+              <th>{t('common.stack')}</th>
+              <th>{t('common.service')}</th>
+              <th>{t('common.state')}</th>
+              <th>{t('common.health')}</th>
+              <th className="num">{t('common.cpu')}</th>
+              <th className="num">{t('common.memory')}</th>
+              <th className="num">{t('containers.writable')}</th>
+              <th className="num">{t('containers.restarts')}</th>
+              <th className="num">{t('containers.uptime')}</th>
+              <th>{t('common.image')}</th>
+              <th>{t('common.id')}</th>
             </tr>
           </thead>
           <tbody>
@@ -110,10 +113,14 @@ export function ContainersPage() {
                 <td>{c.stack}</td>
                 <td>{c.service ?? '—'}</td>
                 <td>
-                  <span className={`pill state-${c.state}`}>{c.state}</span>
+                  <span className={`pill state-${c.state}`}>
+                    {t(`containers.state.${c.state}` as 'containers.state.running')}
+                  </span>
                 </td>
                 <td>
-                  <span className={`pill health-${c.health}`}>{c.health}</span>
+                  <span className={`pill health-${c.health}`}>
+                    {t(`containers.health.${c.health}` as 'containers.health.healthy')}
+                  </span>
                 </td>
                 <td className="num">{formatCpu(c.stats?.cpuPercent)}</td>
                 <td className="num">{formatBytes(c.stats?.memoryBytes)}</td>
@@ -129,7 +136,7 @@ export function ContainersPage() {
             {!query.isLoading && rows.length === 0 ? (
               <tr>
                 <td colSpan={12} className="muted center">
-                  No containers match filters.
+                  {t('containers.empty')}
                 </td>
               </tr>
             ) : null}

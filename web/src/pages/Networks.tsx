@@ -3,10 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchNetworks } from '../api/client'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function NetworksPage() {
+  const t = useT()
   const live = useLiveState()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
@@ -29,21 +31,21 @@ export function NetworksPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Networks</h1>
+        <h1>{t('networks.title')}</h1>
         <p className="muted">
-          {rows.length} shown · snapshot {formatAgeMs(query.data?.snapshotAgeMs)}
+          {t('common.shown', { n: rows.length })} · {t('common.snapshot')} {formatAgeMs(query.data?.snapshotAgeMs)}
         </p>
       </div>
 
       <div className="toolbar">
         <input
           className="input"
-          placeholder="Search name or id…"
+          placeholder={t('networks.search')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select className="select" value={driver} onChange={(e) => setDriver(e.target.value)}>
-          <option value="">All drivers</option>
+          <option value="">{t('networks.allDrivers')}</option>
           {drivers.map((d) => (
             <option key={d} value={d}>
               {d}
@@ -58,13 +60,13 @@ export function NetworksPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Driver</th>
-              <th>Scope</th>
-              <th>Flags</th>
-              <th className="num">Containers</th>
-              <th>Stacks</th>
-              <th>ID</th>
+              <th>{t('common.name')}</th>
+              <th>{t('common.driver')}</th>
+              <th>{t('common.scope')}</th>
+              <th>{t('common.flags')}</th>
+              <th className="num">{t('common.containers')}</th>
+              <th>{t('common.stacks')}</th>
+              <th>{t('common.id')}</th>
             </tr>
           </thead>
           <tbody>
@@ -78,9 +80,9 @@ export function NetworksPage() {
                 <td>{n.driver}</td>
                 <td>{n.scope || '—'}</td>
                 <td>
-                  {n.internal ? <span className="pill">internal</span> : null}{' '}
-                  {n.ingress ? <span className="pill">ingress</span> : null}{' '}
-                  {n.attachable ? <span className="pill">attachable</span> : null}
+                  {n.internal ? <span className="pill">{t('networks.internal')}</span> : null}{' '}
+                  {n.ingress ? <span className="pill">{t('networks.ingress')}</span> : null}{' '}
+                  {n.attachable ? <span className="pill">{t('networks.attachable')}</span> : null}
                   {!n.internal && !n.ingress && !n.attachable ? <span className="muted">—</span> : null}
                 </td>
                 <td className="num">
@@ -112,7 +114,7 @@ export function NetworksPage() {
             {!query.isLoading && rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="muted center">
-                  No networks match filters.
+                  {t('networks.empty')}
                 </td>
               </tr>
             ) : null}

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, fetchSystemSettings } from '../api/client'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ExportButtons } from '../components/ExportButtons'
-import { useI18n } from '../i18n'
+import { useI18n, useT } from '../i18n'
 import {
   clearAuthToken,
   getAuthToken,
@@ -20,7 +20,8 @@ import { useLiveState } from '../realtime/useLiveState'
 
 export function SettingsPage() {
   const live = useLiveState()
-  const { locale, setLocale, t } = useI18n()
+  const { locale, setLocale } = useI18n()
+  const t = useT()
   const [theme, setThemeState] = useState<Theme>(() => getTheme())
   const [tokenDraft, setTokenDraft] = useState(() => getAuthToken())
   const [redact, setRedact] = useState(() => getInspectRedactDefault())
@@ -43,14 +44,14 @@ export function SettingsPage() {
 
   const saveToken = () => {
     setAuthToken(tokenDraft)
-    setSavedMsg('Token saved. Reloading…')
+    setSavedMsg(t('settings.tokenSaved'))
     window.setTimeout(() => window.location.reload(), 400)
   }
 
   const clearToken = () => {
     clearAuthToken()
     setTokenDraft('')
-    setSavedMsg('Token cleared. Reloading…')
+    setSavedMsg(t('settings.tokenCleared'))
     window.setTimeout(() => window.location.reload(), 400)
   }
 
@@ -60,14 +61,14 @@ export function SettingsPage() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Settings</h1>
-          <p className="muted">Server config (read-only) and local UI preferences</p>
+          <h1>{t('settings.title')}</h1>
+          <p className="muted">{t('settings.subtitle')}</p>
         </div>
       </div>
 
       {unauthorized && (
         <div className="banner warn">
-          API requires a Bearer token. Enter it below (ADR-013), then Save.
+          {t('settings.authWarn')}
         </div>
       )}
       {settingsQ.isError && !unauthorized && (
@@ -76,91 +77,90 @@ export function SettingsPage() {
       {savedMsg && <div className="banner ok">{savedMsg}</div>}
 
       <section className="panel settings-panel">
-        <h2>Server</h2>
+        <h2>{t('settings.server')}</h2>
         {settingsQ.isLoading && !data ? (
-          <p className="muted">Loading…</p>
+          <p className="muted">{t('common.loading')}</p>
         ) : data ? (
           <dl className="kv">
             <div>
-              <dt>Listen</dt>
+              <dt>{t('settings.listen')}</dt>
               <dd className="mono">{data.listen}</dd>
             </div>
             <div>
-              <dt>Loopback</dt>
-              <dd>{data.listenLoopback ? 'yes' : 'no'}</dd>
+              <dt>{t('settings.loopback')}</dt>
+              <dd>{data.listenLoopback ? t('common.yes') : t('settings.metricsOff')}</dd>
             </div>
             <div>
-              <dt>Auth</dt>
-              <dd>{data.authEnabled ? 'enabled' : 'disabled'}</dd>
+              <dt>{t('settings.auth')}</dt>
+              <dd>{data.authEnabled ? t('settings.metricsOn') : t('settings.metricsOff')}</dd>
             </div>
             <div>
-              <dt>Docker timeout</dt>
+              <dt>{t('settings.dockerTimeout')}</dt>
               <dd className="mono">{data.dockerTimeout}</dd>
             </div>
             <div>
-              <dt>Inventory interval</dt>
+              <dt>{t('settings.inventoryInterval')}</dt>
               <dd className="mono">{data.intervals.inventory ?? '—'}</dd>
             </div>
             <div>
-              <dt>Stats interval</dt>
+              <dt>{t('settings.statsInterval')}</dt>
               <dd className="mono">{data.intervals.stats ?? '—'}</dd>
             </div>
             <div>
-              <dt>System interval</dt>
+              <dt>{t('settings.systemInterval')}</dt>
               <dd className="mono">{data.intervals.system ?? '—'}</dd>
             </div>
             <div>
-              <dt>Version</dt>
+              <dt>{t('common.version')}</dt>
               <dd className="mono">
                 {data.version} ({data.commit})
               </dd>
             </div>
             <div>
-              <dt>UI embed</dt>
-              <dd>{data.uiEmbedded ? 'yes' : 'no'}</dd>
+              <dt>{t('settings.uiEmbed')}</dt>
+              <dd>{data.uiEmbedded ? t('common.yes') : t('settings.metricsOff')}</dd>
             </div>
             <div>
-              <dt>Default host</dt>
-              <dd className="mono">{data.defaultHost ?? 'default'}</dd>
+              <dt>{t('settings.defaultHost')}</dt>
+              <dd className="mono">{data.defaultHost ?? t('host.default')}</dd>
             </div>
             <div>
-              <dt>Metrics DB</dt>
+              <dt>{t('settings.metricsDb')}</dt>
               <dd className="mono">
                 {data.metrics?.enabled
-                  ? `${data.metrics.dbPath ?? '—'} · ${data.metrics.interval ?? '?'} / keep ${data.metrics.retention ?? '?'}`
-                  : 'off'}
+                  ? `${data.metrics.dbPath ?? '—'} · ${data.metrics.interval ?? '?'} · ${data.metrics.retention ?? '?'}`
+                  : t('settings.metricsOff')}
               </dd>
             </div>
             <div>
-              <dt>Inspect redact default</dt>
-              <dd>{data.defaults.inspectRedact ? 'on' : 'off'}</dd>
+              <dt>{t('settings.inspectRedactDefault')}</dt>
+              <dd>{data.defaults.inspectRedact ? t('settings.metricsOn') : t('settings.metricsOff')}</dd>
             </div>
           </dl>
         ) : (
-          <p className="muted">Server settings unavailable until authenticated.</p>
+          <p className="muted">{t('settings.authNeeded')}</p>
         )}
         {data?.hosts && data.hosts.length > 0 && (
           <>
-            <h3 className="settings-sub">Docker hosts</h3>
+            <h3 className="settings-sub">{t('settings.dockerHosts')}</h3>
             <ul className="host-list">
               {data.hosts.map((h) => (
                 <li key={h.name}>
                   <span className="mono">{h.name}</span>
-                  {h.isDefault ? ' · default' : ''}
+                  {h.isDefault ? ` · ${t('host.default')}` : ''}
                   {' · '}
                   <span className="muted mono">{h.endpoint || h.source}</span>
-                  {h.connected ? ' · up' : ' · down'}
+                  {h.connected ? ` · ${t('common.connected')}` : ` · ${t('common.disconnected')}`}
                 </li>
               ))}
             </ul>
             <p className="muted tiny">
-              Hosts are configured at process start (`--docker-hosts`). Switching uses the Host
-              picker in the nav (ADR-014).
+              {t('settings.hostsHint')}
             </p>
           </>
         )}
         <p className="muted tiny">
-          Intervals are process flags (`--inventory-interval`, etc.) — restart to change.
+          {t('settings.intervalsHint')}
         </p>
       </section>
 
@@ -177,14 +177,14 @@ export function SettingsPage() {
               setLocale(next)
             }}
           >
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
+            <option value="en">{t('settings.lang.en')}</option>
+            <option value="ru">{t('settings.lang.ru')}</option>
           </select>
         </label>
-        <p className="muted tiny">Current locale: {locale}</p>
+        <p className="muted tiny">{t('settings.localeCurrent', { locale })}</p>
 
         <label className="field">
-          <span>Theme</span>
+          <span>{t('settings.theme')}</span>
           <select
             className="select"
             value={theme}
@@ -194,8 +194,8 @@ export function SettingsPage() {
               setTheme(next)
             }}
           >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
+            <option value="dark">{t('settings.theme.dark')}</option>
+            <option value="light">{t('settings.theme.light')}</option>
           </select>
         </label>
 
@@ -208,57 +208,56 @@ export function SettingsPage() {
               setInspectRedactDefault(e.target.checked)
             }}
           />
-          <span>Default redact on container inspect</span>
+          <span>{t('settings.redactDefault')}</span>
         </label>
 
         <label className="field">
-          <span>API token (localStorage)</span>
+          <span>{t('settings.apiToken')}</span>
           <input
             type="password"
             autoComplete="off"
             className="input mono"
             value={tokenDraft}
-            placeholder={data?.authEnabled ? 'required' : 'optional'}
+            placeholder={data?.authEnabled ? t('common.required') : t('common.optional')}
             onChange={(e) => setTokenDraft(e.target.value)}
           />
         </label>
         <div className="toolbar">
           <button type="button" className="btn" onClick={saveToken}>
-            Save token
+            {t('settings.saveToken')}
           </button>
           <button type="button" className="btn ghost" onClick={clearToken}>
-            Clear token
+            {t('settings.clearToken')}
           </button>
         </div>
         <p className="muted tiny">
-          Used for REST `Authorization: Bearer` and WebSocket `?access_token=`. Never sent to
-          third parties.
+          {t('settings.tokenHint')}
         </p>
       </section>
 
       <section className="panel settings-panel">
-        <h2>Export</h2>
+        <h2>{t('settings.export')}</h2>
         <ExportButtons />
       </section>
 
       <section className="panel settings-panel">
-        <h2>Realtime</h2>
+        <h2>{t('settings.realtime')}</h2>
         <dl className="kv">
           <div>
-            <dt>WebSocket</dt>
-            <dd>{live.connected ? 'connected' : 'disconnected'}</dd>
+            <dt>{t('settings.websocket')}</dt>
+            <dd>{live.connected ? t('common.connected') : t('common.disconnected')}</dd>
           </div>
           <div>
-            <dt>Docker</dt>
+            <dt>{t('settings.docker')}</dt>
             <dd>
               {live.docker?.connected
                 ? `${live.docker.host} (${live.docker.source})`
-                : live.docker?.error || 'unknown'}
+                : live.docker?.error || t('common.unknown')}
             </dd>
           </div>
           <div>
-            <dt>Events</dt>
-            <dd>{live.events?.connected ? 'connected' : live.events?.error || 'disconnected'}</dd>
+            <dt>{t('settings.events')}</dt>
+            <dd>{live.events?.connected ? t('common.connected') : live.events?.error || t('common.disconnected')}</dd>
           </div>
         </dl>
       </section>

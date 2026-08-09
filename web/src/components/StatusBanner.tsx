@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ApiError, fetchReady } from '../api/client'
+import { useT } from '../i18n'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function StatusBanner() {
+  const t = useT()
   const live = useLiveState()
   const ready = useQuery({
     queryKey: ['ready'],
@@ -15,7 +17,10 @@ export function StatusBanner() {
   if (ready.error instanceof ApiError && ready.error.status === 401) {
     return (
       <div className="banner warn">
-        API unauthorized — set a token in <Link className="text-link" to="/settings">Settings</Link>
+        {t('status.unauthorizedBefore')}{' '}
+        <Link className="text-link" to="/settings">
+          {t('nav.settings')}
+        </Link>
       </div>
     )
   }
@@ -26,7 +31,7 @@ export function StatusBanner() {
     : null)
 
   if (ready.isLoading && !docker) {
-    return <div className="banner info">Checking Docker Engine…</div>
+    return <div className="banner info">{t('status.checking')}</div>
   }
 
   const connected = docker?.connected ?? ready.data?.ready
@@ -34,29 +39,30 @@ export function StatusBanner() {
     const msg =
       docker?.error ||
       ready.data?.error?.message ||
-      (ready.error instanceof Error ? ready.error.message : 'Docker unavailable')
+      (ready.error instanceof Error ? ready.error.message : t('status.unavailable'))
     return (
       <div className="banner danger">
-        Docker disconnected{docker?.host ? ` (${docker.host})` : ''}: {msg}
+        {t('status.disconnected')}
+        {docker?.host ? ` (${docker.host})` : ''}: {msg}
       </div>
     )
   }
 
   const eventsBit = events
     ? events.connected
-      ? ' · events live'
-      : ` · events polling${events.error ? ` (${events.error})` : ''}`
+      ? ` · ${t('status.eventsLive')}`
+      : ` · ${t('status.eventsPolling')}${events.error ? ` (${events.error})` : ''}`
     : ''
 
   const hostName = ready.data?.host
   return (
     <div className="banner ok">
-      Connected
-      {hostName ? ` · host ${hostName}` : ''}
+      {t('status.connected')}
+      {hostName ? ` · ${t('common.host')} ${hostName}` : ''}
       {docker?.host ? ` · ${docker.host}` : ''}
       {docker?.apiVersion ? ` · API ${docker.apiVersion}` : ''}
       {docker?.osType ? ` · ${docker.osType}` : ''}
-      {live.connected ? ' · ws' : ' · ws…'}
+      {live.connected ? ` · ${t('status.ws')}` : ` · ${t('status.wsReconnecting')}`}
       {eventsBit}
     </div>
   )

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { ApiError, downloadExport, type ExportFormat, type ExportScope } from '../api/client'
+import { useT } from '../i18n'
 
 type Props = {
   compact?: boolean
 }
 
 export function ExportButtons({ compact }: Props) {
+  const t = useT()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -25,21 +27,17 @@ export function ExportButtons({ compact }: Props) {
     <div className={compact ? 'export-bar compact' : 'export-bar'}>
       <div className="toolbar">
         <button type="button" className="btn" disabled={busy} onClick={() => run('json', 'all')}>
-          Export JSON
+          {t('export.json')}
         </button>
         <button type="button" className="btn ghost" disabled={busy} onClick={() => run('csv', 'containers')}>
-          CSV containers
+          {t('export.csvContainers')}
         </button>
         <button type="button" className="btn ghost" disabled={busy} onClick={() => run('csv', 'stacks')}>
-          CSV stacks
+          {t('export.csvStacks')}
         </button>
       </div>
       {err ? <p className="warn tiny">{err}</p> : null}
-      {!compact ? (
-        <p className="muted tiny">
-          Structured inventory export (parity schema) — PowerShell script replacement.
-        </p>
-      ) : null}
+      {!compact ? <p className="muted tiny">{t('export.hint')}</p> : null}
     </div>
   )
 }

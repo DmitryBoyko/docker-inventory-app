@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { fetchHosts } from '../api/client'
+import { useT } from '../i18n'
 import { getSelectedHost, setSelectedHost } from '../lib/prefs'
 
 export function HostPicker() {
+  const t = useT()
   const qc = useQueryClient()
   const [selected, setSelected] = useState(() => getSelectedHost())
   const hostsQ = useQuery({
@@ -34,11 +36,11 @@ export function HostPicker() {
 
   return (
     <label className="host-picker">
-      <span className="host-picker-label">Host</span>
+      <span className="host-picker-label">{t('host.label')}</span>
       <select
         className="select host-select"
         value={value}
-        aria-label="Docker host"
+        aria-label={t('host.aria')}
         onChange={(e) => {
           const name = e.target.value
           setSelected(name)
@@ -49,8 +51,8 @@ export function HostPicker() {
         {hosts.map((h) => (
           <option key={h.name} value={h.name}>
             {h.name}
-            {h.isDefault ? ' (default)' : ''}
-            {h.connected ? '' : ' · offline'}
+            {h.isDefault ? ` ${t('host.default')}` : ''}
+            {h.connected ? '' : ` · ${t('host.offline')}`}
           </option>
         ))}
       </select>

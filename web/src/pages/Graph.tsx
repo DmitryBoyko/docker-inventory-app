@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchGraph, fetchStacks } from '../api/client'
 import type { Graph as GraphModel } from '../api/types'
+import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
@@ -116,6 +117,7 @@ function toElements(g: GraphModel): ElementDefinition[] {
 }
 
 export function GraphPage() {
+  const t = useT()
   const live = useLiveState()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -206,11 +208,11 @@ export function GraphPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Graph</h1>
+        <h1>{t('graph.title')}</h1>
         <p className="muted">
-          {filtered ? `${filtered.nodes.length} nodes · ${filtered.edges.length} edges` : '—'}
+          {filtered ? t('graph.nodesEdges', { nodes: filtered.nodes.length, edges: filtered.edges.length }) : '—'}
           {' · '}
-          snapshot {formatAgeMs(graphQ.data?.snapshotAgeMs)}
+          {t('common.snapshot')} {formatAgeMs(graphQ.data?.snapshotAgeMs)}
         </p>
       </div>
 
@@ -227,8 +229,8 @@ export function GraphPage() {
             setParams(p, { replace: true })
           }}
         >
-          <option value="all">All stacks</option>
-          <option value="stack">One stack</option>
+          <option value="all">{t('common.allStacks')}</option>
+          <option value="stack">{t('graph.oneStack')}</option>
         </select>
         {scope === 'stack' ? (
           <select
@@ -241,7 +243,7 @@ export function GraphPage() {
               setParams(p, { replace: true })
             }}
           >
-            <option value="">Select stack…</option>
+            <option value="">{t('graph.selectStack')}</option>
             {stackNames.map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -251,7 +253,7 @@ export function GraphPage() {
         ) : null}
         <label className="check-row">
           <input type="checkbox" checked={showImages} onChange={(e) => setShowImages(e.target.checked)} />
-          Show images
+          {t('graph.showImages')}
         </label>
         <button
           type="button"
@@ -262,15 +264,15 @@ export function GraphPage() {
               .run()
           }
         >
-          Relayout
+          {t('graph.relayout')}
         </button>
       </div>
 
       {graphQ.isError ? <div className="banner danger">{(graphQ.error as Error).message}</div> : null}
-      {scope === 'stack' && !stack ? <div className="banner info">Choose a stack to render the graph.</div> : null}
+      {scope === 'stack' && !stack ? <div className="banner info">{t('graph.chooseStack')}</div> : null}
 
       <div className="graph-legend muted tiny">
-        stack · service · container · network · volume · image — click a node to open the related list
+        {t('graph.legend')}
       </div>
       <div className="graph-host" ref={hostRef} />
     </div>
