@@ -31,12 +31,12 @@ Cross-platform, **read-only** Docker inventory: one Go binary serves the API and
 Prerequisites: [Go](https://go.dev/dl/) 1.25+, [Node.js](https://nodejs.org/) 24+, Docker Desktop running.
 
 ```powershell
-# From repo root — build EXE with embedded UI
+# From repo root — always rebuilds UI (npm) + embeds + EXE
 .\scripts\build-exe.ps1
 
-# Run (builds automatically if bin\docker-visualizer.exe is missing)
+# Run (full rebuild if EXE missing; use -Build to force UI+EXE again)
 .\scripts\run-exe.ps1
-.\scripts\run-exe.ps1 -OpenBrowser
+.\scripts\run-exe.ps1 -Build -OpenBrowser
 ```
 
 Then open [http://127.0.0.1:8080](http://127.0.0.1:8080).
@@ -79,7 +79,9 @@ make build
 Cross-compile / release:
 
 ```bash
-make build-all                 # or: .\scripts\build.ps1 -Cross
+make build-all                 # sync UI + all platforms (preferred)
+make cross                     # binaries only after an earlier sync-ui
+.\scripts\build.ps1 -Cross     # Windows: always syncs UI first, then matrix
 make release-snapshot          # optional GoReleaser snapshot
 ```
 

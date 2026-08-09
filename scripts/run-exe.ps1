@@ -1,6 +1,9 @@
 <#
 .SYNOPSIS
-  Run the Windows EXE (build it first if missing).
+  Run the Windows EXE (full rebuild if missing or -Build).
+
+.DESCRIPTION
+  Rebuilds always include npm UI + embed. There is no SkipUI flag.
 
 .PARAMETER Listen
   Bind address (default 127.0.0.1:8080).
@@ -12,25 +15,20 @@
   Override Docker Engine endpoint (e.g. npipe:////./pipe/docker_engine).
 
 .PARAMETER Build
-  Force rebuild with build-exe.ps1 before run.
-
-.PARAMETER SkipUI
-  When -Build, skip npm UI sync.
+  Force full rebuild (UI + EXE) before run.
 
 .PARAMETER OpenBrowser
   Open the UI in the default browser after start.
 
 .EXAMPLE
   .\scripts\run-exe.ps1
-  .\scripts\run-exe.ps1 -OpenBrowser
-  .\scripts\run-exe.ps1 -Listen 0.0.0.0:8080 -AuthToken "secret"
+  .\scripts\run-exe.ps1 -Build -OpenBrowser
 #>
 param(
   [string]$Listen = "127.0.0.1:8080",
   [string]$AuthToken = "",
   [string]$DockerHost = "",
   [switch]$Build,
-  [switch]$SkipUI,
   [switch]$OpenBrowser
 )
 
@@ -39,8 +37,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $exe = Join-Path $root "bin\docker-visualizer.exe"
 
 if ($Build -or -not (Test-Path $exe)) {
-  Write-Host "==> EXE not found or -Build set; building..." -ForegroundColor Cyan
-  & "$PSScriptRoot\build-exe.ps1" -SkipUI:$SkipUI
+  Write-Host "==> Full rebuild (UI + EXE)..." -ForegroundColor Cyan
+  & "$PSScriptRoot\build-exe.ps1"
 }
 
 if (-not (Test-Path $exe)) {

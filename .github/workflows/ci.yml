@@ -34,4 +34,4 @@ jobs:
             -o bin/docker-visualizer ./cmd/docker-visualizer
 
       - name: Cross-compile matrix
-        run: make build-all
+        run: make cross

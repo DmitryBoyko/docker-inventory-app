@@ -1,7 +1,20 @@
+<#
+.SYNOPSIS
+  Build Docker Visualizer binary (always rebuilds and embeds the UI).
+
+.DESCRIPTION
+  Every invocation runs npm ci + Vite build, syncs into internal/uiembed/dist,
+  then compiles the Go binary. There is no SkipUI — stale embedded UI is not allowed.
+
+.PARAMETER Version
+  Version string stamped into the binary (default: "dev").
+
+.PARAMETER Cross
+  Also build linux/darwin amd64+arm64 artifacts under bin\.
+#>
 param(
   [string]$Version = "dev",
-  [switch]$Cross,
-  [switch]$SkipUI
+  [switch]$Cross
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,8 +27,13 @@ if (-not $commit) { $commit = "none" }
 
 $ldflags = "-s -w -X main.version=$Version -X main.commit=$commit"
 
-if (-not $SkipUI) {
-  & "$PSScriptRoot\sync-ui.ps1"
+Write-Host "==> Sync UI (npm build → embed)..." -ForegroundColor Cyan
+& "$PSScriptRoot\sync-ui.ps1"
+if ($LASTEXITCODE -ne 0) { throw "sync-ui.ps1 failed with exit code $LASTEXITCODE" }
+
+$embedIndex = Join-Path $root "internal\uiembed\dist\index.html"
+if (-not (Test-Path $embedIndex)) {
+  throw "UI embed missing after sync: $embedIndex"
 }
 
 New-Item -ItemType Directory -Force -Path (Join-Path $root "bin") | Out-Null
@@ -43,5 +61,5 @@ if ($Cross) {
   Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
   $env:CGO_ENABLED = "0"
   go build -trimpath -ldflags $ldflags -o (Join-Path $root "bin\$exe") ./cmd/docker-visualizer
-  Write-Host "Built bin\$exe"
+  Write-Host "Built bin\$exe (UI embedded from internal/uiembed/dist)"
 }
