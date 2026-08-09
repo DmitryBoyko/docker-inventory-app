@@ -34,4 +34,4 @@ Matches how Docker CLI finds the engine across Desktop and Engine installs.
 
 Context store parsing must be unit-tested.
 
-**Operator how-to (VPS checklist, examples, troubleshooting):** [`../../MANUAL.md`](../../MANUAL.md) §2–§5.
+**Operator how-to (VPS walkthrough, examples, troubleshooting):** [`../../MANUAL.md`](../../MANUAL.md) §2–§5.

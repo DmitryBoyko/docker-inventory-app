@@ -32,4 +32,4 @@ Smallest change to the existing flat `/api/v1/*` API while keeping snapshots iso
 
 UI must send `host` on REST/WS. Diagnostics/settings expose the host list. Memory/CPU scale roughly linearly with host count × collector load.
 
-**Operator how-to (multi-host examples + VPS checklist):** [`../../MANUAL.md`](../../MANUAL.md) §3–§4.
+**Operator how-to (multi-host examples + VPS walkthrough):** [`../../MANUAL.md`](../../MANUAL.md) §3–§4.

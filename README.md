@@ -121,7 +121,7 @@ go run ./cmd/docker-visualizer \
 
 REST and WebSocket accept `?host=<name>` (omit → default host). Auth: `Authorization: Bearer <token>` (or `?access_token=` on WS). UI: Settings → store token in `localStorage`.
 
-**Remote VPS + TLS checklist:** [`MANUAL.md`](MANUAL.md#4-remote-vps--docker--checklist).
+**Remote VPS + TLS (full walkthrough):** [`MANUAL.md`](MANUAL.md#4-remote-vps--docker--step-by-step).
 
 ## API
 
