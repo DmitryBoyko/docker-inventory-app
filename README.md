@@ -31,20 +31,21 @@ Cross-platform, **read-only** Docker inventory: one Go binary serves the API and
 Prerequisites: [Go](https://go.dev/dl/) 1.25+, [Node.js](https://nodejs.org/) 24+, Docker Desktop running.
 
 ```powershell
-# From repo root — always rebuilds UI (npm) + embeds + EXE
+# From repo root — bumps SemVer patch, rebuilds UI (npm) + embeds + EXE
 .\scripts\build-exe.ps1
 
-# Run (full rebuild if EXE missing; use -Build to force UI+EXE again)
+# Run (full rebuild+bump if EXE missing; use -Build to force again)
 .\scripts\run-exe.ps1
 .\scripts\run-exe.ps1 -Build -OpenBrowser
 ```
 
-Then open [http://127.0.0.1:8080](http://127.0.0.1:8080).
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080). Version shows in header/footer (`vX.Y.Z`) and Settings.
 
 | Output | Path |
 |--------|------|
 | Local run | `bin\docker-visualizer.exe` |
 | Distribution name | `bin\docker-visualizer-windows-amd64.exe` |
+| SemVer source | `VERSION` (patch +1 on each `build-exe` / `make build`) |
 
 Common run options:
 

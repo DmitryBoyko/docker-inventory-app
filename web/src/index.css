@@ -138,6 +138,16 @@ a {
   color: var(--muted);
 }
 
+.brand-version {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.app-footer {
+  padding: 0.5rem 1.25rem 1rem;
+  text-align: center;
+}
+
 .nav {
   display: flex;
   flex-wrap: wrap;
@@ -618,6 +628,11 @@ a {
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   background: var(--bg-panel);
+}
+
+.cv-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.5rem;
 }
 
 .table {

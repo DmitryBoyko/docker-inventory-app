@@ -71,12 +71,7 @@ export function LiveCharts() {
 
   return (
     <div className="charts-stack">
-      <HistoryCharts
-        scope="host"
-        title={t('charts.hostTitle')}
-        rangeHours={1}
-        liveTip={live.history}
-      />
+      <HistoryCharts scope="host" title={t('charts.hostTitle')} rangeHours={1} />
       <section className="panel">
         <div className="panel-head">
           <h2>{t('charts.liveTip')}</h2>
@@ -88,7 +83,13 @@ export function LiveCharts() {
         {live.history.length < 2 ? (
           <p className="muted">{t('charts.waiting')}</p>
         ) : (
-          <ReactECharts option={option} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
+          <ReactECharts
+            option={option}
+            style={{ height: 220 }}
+            opts={{ renderer: 'canvas' }}
+            notMerge
+            lazyUpdate
+          />
         )}
       </section>
     </div>

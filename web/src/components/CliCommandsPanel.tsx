@@ -33,6 +33,7 @@ export function CliCommandsPanel({ kind, entityRef }: Props) {
     queryKey: ['commands', kind, entityRef, shell],
     queryFn: () => fetchEntityCommands(kind, entityRef, shell),
     enabled: kind === 'system' || !!entityRef,
+    staleTime: 60_000,
   })
 
   const rows = useMemo(() => {

@@ -1,5 +1,5 @@
 import type { DockerEvent, EventsStatus, HistoryPoint, LiveState, SnapshotNotice, StatsItem } from './types'
-import type { ConnectionStatus } from '../api/types'
+import type { ConnectionStatus, ContainerStats } from '../api/types'
 
 const MAX_HISTORY = 60
 
@@ -24,7 +24,9 @@ export function getLiveState() {
 
 export function subscribeLive(listener: Listener) {
   listeners.add(listener)
-  return () => listeners.delete(listener)
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 export function onSnapshotUpdated(listener: (n: SnapshotNotice) => void) {
@@ -84,12 +86,46 @@ export function applyDockerEvent(ev: DockerEvent) {
   setState({ lastEvent: ev })
 }
 
-export function mergeContainerStats<T extends { id: string; idShort?: string; stats?: unknown }>(
+function lookupStats(id: string, idShort?: string): ContainerStats | undefined {
+  const live = state.statsById[id] || (idShort ? state.statsById[idShort] : undefined)
+  return live?.stats ?? undefined
+}
+
+/**
+ * Merge live WS stats into container rows.
+ * Reuses previous row references when the live stats object is unchanged (P1).
+ */
+export function mergeContainerStats<T extends { id: string; idShort?: string; stats?: ContainerStats | null }>(
   containers: T[],
+  previous?: T[],
 ): T[] {
-  return containers.map((c) => {
-    const live = state.statsById[c.id] || (c.idShort ? state.statsById[c.idShort] : undefined)
-    if (!live?.stats) return c
-    return { ...c, stats: live.stats }
+  if (containers.length === 0) return previous?.length === 0 && previous ? previous : containers
+
+  const prevById = previous ? new Map(previous.map((c) => [c.id, c] as const)) : null
+  let reused = 0
+  const out = containers.map((c) => {
+    const liveStats = lookupStats(c.id, c.idShort)
+    const prev = prevById?.get(c.id)
+    if (liveStats) {
+      if (prev && prev.stats === liveStats) {
+        reused++
+        return prev
+      }
+      return { ...c, stats: liveStats } as T
+    }
+    if (prev && prev.stats == null && prev === c) {
+      reused++
+      return prev
+    }
+    return c
   })
+
+  if (previous && reused === out.length && previous.length === out.length) {
+    return previous
+  }
+  return out
+}
+
+export function getContainerLiveStats(id: string, idShort?: string): ContainerStats | undefined {
+  return lookupStats(id, idShort)
 }

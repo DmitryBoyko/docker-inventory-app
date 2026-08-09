@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { fetchHosts } from '../api/client'
+import { qk } from '../api/queryClient'
 import { useT } from '../i18n'
 import { getSelectedHost, setSelectedHost } from '../lib/prefs'
 
@@ -9,9 +10,13 @@ export function HostPicker() {
   const qc = useQueryClient()
   const [selected, setSelected] = useState(() => getSelectedHost())
   const hostsQ = useQuery({
-    queryKey: ['hosts'],
+    queryKey: qk.hosts,
     queryFn: fetchHosts,
-    refetchInterval: 15000,
+    staleTime: 30_000,
+    refetchInterval: (q) => {
+      const n = q.state.data?.data?.length ?? 0
+      return n <= 1 ? 60_000 : 20_000
+    },
     retry: false,
   })
 

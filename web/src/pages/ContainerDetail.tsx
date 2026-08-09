@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   fetchContainer,
   fetchContainerInspect,
   fetchContainerLogs,
 } from '../api/client'
-import { HistoryCharts } from '../components/HistoryCharts'
+import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
 import { useT } from '../i18n'
@@ -14,8 +14,11 @@ import { portExposureToScope } from '../lib/exposure'
 import { formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
 import { startLogStream } from '../lib/logStream'
 import { getInspectRedactDefault } from '../lib/prefs'
-import { mergeContainerStats } from '../realtime/store'
-import { useLiveState } from '../realtime/useLiveState'
+import { useContainerLiveStats, useLiveConnected } from '../realtime/useLiveState'
+
+const HistoryCharts = lazy(() =>
+  import('../components/HistoryCharts').then((m) => ({ default: m.HistoryCharts })),
+)
 
 const tabs = ['overview', 'ports', 'networks', 'volumes', 'stats', 'logs', 'inspect', 'commands'] as const
 type Tab = (typeof tabs)[number]
@@ -26,7 +29,7 @@ export function ContainerDetailPage() {
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const tab = (tabs.includes(params.get('tab') as Tab) ? params.get('tab') : 'overview') as Tab
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const [redact, setRedact] = useState(() => getInspectRedactDefault())
   const [tail, setTail] = useState(200)
   const [timestamps, setTimestamps] = useState(false)
@@ -36,20 +39,28 @@ export function ContainerDetailPage() {
   const logRef = useRef<HTMLPreElement>(null)
 
   const containerQ = useQuery({
-    queryKey: ['container', id],
+    queryKey: qk.container(id),
     queryFn: () => fetchContainer(id),
     enabled: !!id,
-    refetchInterval: live.connected ? 15000 : 3000,
+    refetchInterval: wsConnected ? 15_000 : 8_000,
   })
 
+  const raw = containerQ.data?.data
+  const wantLiveStats = tab === 'overview' || tab === 'stats'
+  const liveStats = useContainerLiveStats(
+    wantLiveStats ? (raw?.id ?? id) : '',
+    wantLiveStats ? raw?.idShort : undefined,
+  )
+
   const inspectQ = useQuery({
-    queryKey: ['container-inspect', id, redact],
+    queryKey: qk.containerInspect(id, redact),
     queryFn: () => fetchContainerInspect(id, redact),
     enabled: !!id && tab === 'inspect',
+    staleTime: 30_000,
   })
 
   const logsQ = useQuery({
-    queryKey: ['container-logs', id, tail, timestamps],
+    queryKey: qk.containerLogs(id, tail, timestamps),
     queryFn: () => fetchContainerLogs(id, { tail, timestamps }),
     enabled: !!id && tab === 'logs' && !followLive,
   })
@@ -82,10 +93,10 @@ export function ContainerDetailPage() {
   }, [liveText, followLive])
 
   const c = useMemo(() => {
-    const raw = containerQ.data?.data
     if (!raw) return null
-    return mergeContainerStats([raw])[0]
-  }, [containerQ.data, live.statsById])
+    if (!liveStats) return raw
+    return { ...raw, stats: liveStats }
+  }, [raw, liveStats])
 
   const setTab = (t: Tab) => {
     const next = new URLSearchParams(params)
@@ -344,12 +355,14 @@ export function ContainerDetailPage() {
               <p className="muted">{t('detail.noStats')}</p>
             )}
           </section>
-          <HistoryCharts
-            scope="container"
-            id={c.id}
-            title={t('detail.historyTitle')}
-            rangeHours={1}
-          />
+          <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
+            <HistoryCharts
+              scope="container"
+              id={c.id}
+              title={t('detail.historyTitle')}
+              rangeHours={1}
+            />
+          </Suspense>
         </>
       ) : null}
 

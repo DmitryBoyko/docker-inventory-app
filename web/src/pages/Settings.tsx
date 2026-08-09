@@ -16,10 +16,10 @@ import {
   type Locale,
   type Theme,
 } from '../lib/prefs'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnectionBanner } from '../realtime/useLiveState'
 
 export function SettingsPage() {
-  const live = useLiveState()
+  const live = useLiveConnectionBanner()
   const { locale, setLocale } = useI18n()
   const t = useT()
   const [theme, setThemeState] = useState<Theme>(() => getTheme())
@@ -113,7 +113,8 @@ export function SettingsPage() {
             <div>
               <dt>{t('common.version')}</dt>
               <dd className="mono">
-                {data.version} ({data.commit})
+                v{data.version}
+                {data.commit && data.commit !== 'none' ? ` (${data.commit})` : ''}
               </dd>
             </div>
             <div>

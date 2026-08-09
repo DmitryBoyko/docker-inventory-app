@@ -29,9 +29,12 @@ jobs:
 
       - name: Build host binary
         run: |
+          VER="$(tr -d ' \r\n' < VERSION)"
           CGO_ENABLED=0 go build -trimpath \
-            -ldflags "-s -w -X main.version=ci -X main.commit=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X main.version=${VER}+ci -X main.commit=${GITHUB_SHA::7}" \
             -o bin/docker-visualizer ./cmd/docker-visualizer
 
       - name: Cross-compile matrix
-        run: make cross
+        run: |
+          VER="$(tr -d ' \r\n' < VERSION)"
+          make cross VERSION="$VER" LDFLAGS="-s -w -X main.version=${VER}+ci -X main.commit=${GITHUB_SHA::7}"

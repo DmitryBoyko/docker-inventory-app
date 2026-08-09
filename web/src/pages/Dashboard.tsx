@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   fetchContainers,
@@ -7,60 +7,82 @@ import {
   fetchSystemInfo,
   fetchSystemResources,
 } from '../api/client'
+import type { Container } from '../api/types'
+import { qk } from '../api/queryClient'
 import { ExportButtons } from '../components/ExportButtons'
 import { ExposureBadge } from '../components/ExposureBadge'
 import { ExposureMap } from '../components/ExposureMap'
-import { LiveCharts } from '../components/LiveCharts'
 import { StatCard } from '../components/StatCard'
 import { useT } from '../i18n'
 import { collectExposureRoutes, countByScope } from '../lib/exposure'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
 import { mergeContainerStats } from '../realtime/store'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnected, useLiveState, useThrottledStatsById } from '../realtime/useLiveState'
+
+const LiveCharts = lazy(() =>
+  import('../components/LiveCharts').then((m) => ({ default: m.LiveCharts })),
+)
+
+/** Inventory poll: slower when WS is live (snapshots invalidate). */
+const POLL_LIVE_MS = 30_000
+const POLL_FALLBACK_MS = 8_000
+const EMPTY_CONTAINERS: Container[] = []
 
 export function DashboardPage() {
   const t = useT()
   const live = useLiveState()
-  const poll = live.connected ? 15000 : 2000
+  const wsConnected = useLiveConnected()
+  const statsById = useThrottledStatsById(2000)
+  const poll = wsConnected ? POLL_LIVE_MS : POLL_FALLBACK_MS
 
   const resources = useQuery({
-    queryKey: ['system', 'resources'],
+    queryKey: qk.systemResources,
     queryFn: fetchSystemResources,
     refetchInterval: poll,
   })
   const info = useQuery({
-    queryKey: ['system', 'info'],
+    queryKey: qk.systemInfo,
     queryFn: fetchSystemInfo,
-    refetchInterval: 30000,
+    refetchInterval: 30_000,
     retry: false,
   })
   const containers = useQuery({
-    queryKey: ['containers'],
+    queryKey: qk.containers(),
     queryFn: () => fetchContainers(),
     refetchInterval: poll,
   })
   const stacks = useQuery({
-    queryKey: ['stacks'],
+    queryKey: qk.stacks,
     queryFn: fetchStacks,
     refetchInterval: poll,
   })
 
-  const list = useMemo(
-    () => mergeContainerStats(containers.data?.data ?? []),
-    [containers.data, live.statsById],
-  )
+  const inventory = containers.data?.data ?? EMPTY_CONTAINERS
 
-  const exposureRoutes = useMemo(() => collectExposureRoutes(list), [list])
+  // Ports/exposure don't depend on 1 Hz stats — keep map stable between inventory polls.
+  const exposureRoutes = useMemo(() => collectExposureRoutes(inventory), [containers.data])
   const exposureCounts = useMemo(() => countByScope(exposureRoutes), [exposureRoutes])
+
+  const prevList = useRef<Container[] | undefined>(undefined)
+  const list = useMemo(() => {
+    void statsById
+    const next = mergeContainerStats(inventory, prevList.current)
+    prevList.current = next
+    return next
+  }, [statsById, inventory])
 
   const liveCpu = live.history[live.history.length - 1]?.cpu
   const liveMem = live.history[live.history.length - 1]?.mem
   const r = resources.data?.data
   const engine = info.data?.data
-  const topMem = [...list]
-    .filter((c) => c.stats)
-    .sort((a, b) => (b.stats?.memoryBytes ?? 0) - (a.stats?.memoryBytes ?? 0))
-    .slice(0, 5)
+  const topMem = useMemo(
+    () =>
+      [...list]
+        .filter((c) => c.stats)
+        .sort((a, b) => (b.stats?.memoryBytes ?? 0) - (a.stats?.memoryBytes ?? 0))
+        .slice(0, 5),
+    [list],
+  )
 
   return (
     <div className="page">
@@ -123,7 +145,9 @@ export function DashboardPage() {
       </div>
 
       <div className="stack-gap">
-        <LiveCharts />
+        <Suspense fallback={<p className="muted">{t('common.loading')}</p>}>
+          <LiveCharts />
+        </Suspense>
       </div>
 
       <div className="split">
@@ -192,7 +216,7 @@ export function DashboardPage() {
                     <td>
                       <Link
                         className="text-link mono"
-                        to={`/containers/${encodeURIComponent(c.idShort)}`}
+                        to={`/containers/${encodeURIComponent(c.idShort ?? c.id)}`}
                       >
                         {c.name}
                       </Link>

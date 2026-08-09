@@ -2,24 +2,28 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchImages } from '../api/client'
+import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
 import { useT } from '../i18n'
 import { formatAgeMs, formatBytes } from '../lib/format'
-import { useLiveState } from '../realtime/useLiveState'
+import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useLiveConnected } from '../realtime/useLiveState'
 
 export function ImagesPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [dangling, setDangling] = useState(params.get('dangling') ?? '')
   const [selected, setSelected] = useState('')
+  const qDebounced = useDebouncedValue(q, 250)
 
   const query = useQuery({
-    queryKey: ['images', { q, dangling }],
-    queryFn: () => fetchImages({ q: q || undefined, dangling: dangling || undefined }),
-    refetchInterval: live.connected ? 20000 : 5000,
+    queryKey: qk.images({ q: qDebounced || undefined, dangling: dangling || undefined }),
+    queryFn: () => fetchImages({ q: qDebounced || undefined, dangling: dangling || undefined }),
+    refetchInterval: wsConnected ? 20_000 : 8_000,
+    placeholderData: (prev) => prev,
   })
 
   const rows = query.data?.data ?? []

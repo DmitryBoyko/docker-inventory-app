@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ApiError, fetchReady } from '../api/client'
+import { qk } from '../api/queryClient'
 import { useT } from '../i18n'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnectionBanner } from '../realtime/useLiveState'
 
 export function StatusBanner() {
   const t = useT()
-  const live = useLiveState()
+  const live = useLiveConnectionBanner()
   const ready = useQuery({
-    queryKey: ['ready'],
+    queryKey: qk.ready,
     queryFn: fetchReady,
-    refetchInterval: live.connected ? 30000 : 5000,
+    refetchInterval: live.connected ? 30_000 : 8_000,
     retry: false,
   })
 

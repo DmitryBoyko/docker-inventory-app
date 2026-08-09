@@ -2,24 +2,28 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchVolumes } from '../api/client'
+import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
 import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric } from '../lib/format'
-import { useLiveState } from '../realtime/useLiveState'
+import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useLiveConnected } from '../realtime/useLiveState'
 
 export function VolumesPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [stack, setStack] = useState(params.get('stack') ?? '')
   const [selected, setSelected] = useState('')
+  const qDebounced = useDebouncedValue(q, 250)
 
   const query = useQuery({
-    queryKey: ['volumes', { q, stack }],
-    queryFn: () => fetchVolumes({ q: q || undefined, stack: stack || undefined }),
-    refetchInterval: live.connected ? 20000 : 5000,
+    queryKey: qk.volumes({ q: qDebounced || undefined, stack: stack || undefined }),
+    queryFn: () => fetchVolumes({ q: qDebounced || undefined, stack: stack || undefined }),
+    refetchInterval: wsConnected ? 20_000 : 8_000,
+    placeholderData: (prev) => prev,
   })
 
   const stacks = useMemo(() => {

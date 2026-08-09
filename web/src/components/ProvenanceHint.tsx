@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { fetchProvenance } from '../api/client'
+import { qk } from '../api/queryClient'
 import type { ProvenanceSpec } from '../api/types'
 import { tOr, useT } from '../i18n'
 
@@ -13,9 +14,11 @@ export function ProvenanceHint({ provenanceId, displayedValue }: Props) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const q = useQuery({
-    queryKey: ['provenance', provenanceId],
+    queryKey: qk.provenance(provenanceId),
     queryFn: () => fetchProvenance(provenanceId) as Promise<{ data: ProvenanceSpec }>,
     enabled: open,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
   })
 
   useEffect(() => {

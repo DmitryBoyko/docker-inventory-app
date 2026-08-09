@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { APP_VERSION } from '../generated/version'
 import { useT } from '../i18n'
 import { CommandPalette } from './CommandPalette'
 import { HostPicker } from './HostPicker'
@@ -50,7 +51,9 @@ export function Layout() {
             <span className="brand-mark">DV</span>
             <div>
               <div className="brand-title">{t('brand.title')}</div>
-              <div className="brand-sub">{t('brand.sub')}</div>
+              <div className="brand-sub">
+                {t('brand.sub')} · <span className="brand-version">v{APP_VERSION}</span>
+              </div>
             </div>
           </div>
           <button
@@ -90,6 +93,9 @@ export function Layout() {
       <main className="main">
         <Outlet />
       </main>
+      <footer className="app-footer muted tiny">
+        {t('brand.title')} <span className="mono">v{APP_VERSION}</span>
+      </footer>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )

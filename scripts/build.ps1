@@ -3,17 +3,21 @@
   Build Docker Visualizer binary (always rebuilds and embeds the UI).
 
 .DESCRIPTION
-  Every invocation runs npm ci + Vite build, syncs into internal/uiembed/dist,
-  then compiles the Go binary. There is no SkipUI — stale embedded UI is not allowed.
+  Every invocation bumps SemVer patch (VERSION), syncs npm UI into embed, then
+  compiles the Go binary with -X main.version=<semver>.
 
 .PARAMETER Version
-  Version string stamped into the binary (default: "dev").
+  Optional explicit SemVer (skips auto bump and writes VERSION to this value).
+
+.PARAMETER NoBump
+  Keep VERSION as-is (no patch increment).
 
 .PARAMETER Cross
   Also build linux/darwin amd64+arm64 artifacts under bin\.
 #>
 param(
-  [string]$Version = "dev",
+  [string]$Version = "",
+  [switch]$NoBump,
   [switch]$Cross
 )
 
@@ -21,11 +25,21 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+if ($Version) {
+  $ver = (& "$PSScriptRoot\bump-version.ps1" -Set $Version | Select-Object -Last 1).ToString().Trim()
+} elseif ($NoBump) {
+  $ver = (Get-Content (Join-Path $root "VERSION") -Raw).Trim()
+  & "$PSScriptRoot\bump-version.ps1" -Set $ver | Out-Null
+} else {
+  $ver = (& "$PSScriptRoot\bump-version.ps1" | Select-Object -Last 1).ToString().Trim()
+}
+
 $commit = "none"
 try { $commit = (git rev-parse --short HEAD 2>$null) } catch {}
 if (-not $commit) { $commit = "none" }
 
-$ldflags = "-s -w -X main.version=$Version -X main.commit=$commit"
+$ldflags = "-s -w -X main.version=$ver -X main.commit=$commit"
+Write-Host "==> Building version $ver (commit $commit)" -ForegroundColor Cyan
 
 Write-Host "==> Sync UI (npm build → embed)..." -ForegroundColor Cyan
 & "$PSScriptRoot\sync-ui.ps1"
@@ -61,5 +75,5 @@ if ($Cross) {
   Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
   $env:CGO_ENABLED = "0"
   go build -trimpath -ldflags $ldflags -o (Join-Path $root "bin\$exe") ./cmd/docker-visualizer
-  Write-Host "Built bin\$exe (UI embedded from internal/uiembed/dist)"
+  Write-Host "Built bin\$exe v$ver (UI embedded)"
 }

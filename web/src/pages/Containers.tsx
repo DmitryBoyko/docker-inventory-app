@@ -1,20 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { fetchContainers } from '../api/client'
-import { ExposureBadge } from '../components/ExposureBadge'
+import { qk } from '../api/queryClient'
+import { ContainerTableRow } from '../components/ContainerTableRow'
 import { useT } from '../i18n'
-import { formatAgeMs, formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
+import { formatAgeMs } from '../lib/format'
+import { useDebouncedValue } from '../lib/useDebouncedValue'
 import { mergeContainerStats } from '../realtime/store'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnected, useThrottledStatsById } from '../realtime/useLiveState'
 
 export function ContainersPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
+  const statsById = useThrottledStatsById(2000)
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [state, setState] = useState(params.get('state') ?? '')
   const [stack, setStack] = useState(params.get('stack') ?? '')
+  const qDebounced = useDebouncedValue(q, 250)
 
   useEffect(() => {
     const next = new URLSearchParams()
@@ -24,15 +28,20 @@ export function ContainersPage() {
     setParams(next, { replace: true })
   }, [q, state, stack, setParams])
 
+  const filters = useMemo(
+    () => ({
+      q: qDebounced || undefined,
+      state: state || undefined,
+      stack: stack || undefined,
+    }),
+    [qDebounced, state, stack],
+  )
+
   const query = useQuery({
-    queryKey: ['containers', { q, state, stack }],
-    queryFn: () =>
-      fetchContainers({
-        q: q || undefined,
-        state: state || undefined,
-        stack: stack || undefined,
-      }),
-    refetchInterval: live.connected ? 20000 : 2000,
+    queryKey: qk.containers(filters),
+    queryFn: () => fetchContainers(filters),
+    refetchInterval: wsConnected ? 20_000 : 8_000,
+    placeholderData: (prev) => prev,
   })
 
   const stacks = useMemo(() => {
@@ -40,10 +49,13 @@ export function ContainersPage() {
     return [...set].sort()
   }, [query.data])
 
-  const rows = useMemo(
-    () => mergeContainerStats(query.data?.data ?? []),
-    [query.data, live.statsById],
-  )
+  const prevRows = useRef<import('../api/types').Container[] | undefined>(undefined)
+  const rows = useMemo(() => {
+    void statsById
+    const next = mergeContainerStats(query.data?.data ?? [], prevRows.current)
+    prevRows.current = next
+    return next
+  }, [query.data, statsById])
 
   return (
     <div className="page">
@@ -106,37 +118,7 @@ export function ContainersPage() {
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id}>
-                <td className="mono">
-                  <Link className="text-link" to={`/containers/${encodeURIComponent(c.idShort)}`}>
-                    {c.name}
-                  </Link>
-                </td>
-                <td>{c.stack}</td>
-                <td>{c.service ?? '—'}</td>
-                <td>
-                  <span className={`pill state-${c.state}`}>
-                    {t(`containers.state.${c.state}` as 'containers.state.running')}
-                  </span>
-                </td>
-                <td>
-                  <span className={`pill health-${c.health}`}>
-                    {t(`containers.health.${c.health}` as 'containers.health.healthy')}
-                  </span>
-                </td>
-                <td>
-                  <ExposureBadge container={c} t={t} compact />
-                </td>
-                <td className="num">{formatCpu(c.stats?.cpuPercent)}</td>
-                <td className="num">{formatBytes(c.stats?.memoryBytes)}</td>
-                <td className="num">{formatByteMetric(c.writableLayer)}</td>
-                <td className="num">{c.restartCount}</td>
-                <td className="num">{formatUptime(c.uptimeSeconds)}</td>
-                <td className="mono truncate" title={c.image}>
-                  {c.image}
-                </td>
-                <td className="mono">{c.idShort}</td>
-              </tr>
+              <ContainerTableRow key={c.id} container={c} t={t} />
             ))}
             {!query.isLoading && rows.length === 0 ? (
               <tr>

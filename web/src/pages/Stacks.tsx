@@ -2,19 +2,20 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchStacks } from '../api/client'
+import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnected } from '../realtime/useLiveState'
 
 export function StacksPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const [selected, setSelected] = useState('')
   const query = useQuery({
-    queryKey: ['stacks'],
+    queryKey: qk.stacks,
     queryFn: fetchStacks,
-    refetchInterval: live.connected ? 20000 : 2000,
+    refetchInterval: wsConnected ? 20_000 : 8_000,
   })
 
   const stacks = query.data?.data ?? []

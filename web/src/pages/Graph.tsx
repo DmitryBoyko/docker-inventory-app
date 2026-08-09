@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { fetchGraph, fetchStacks } from '../api/client'
+import { qk } from '../api/queryClient'
 import type { Graph as GraphModel } from '../api/types'
 import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
-import { useLiveState } from '../realtime/useLiveState'
+import { useLiveConnected } from '../realtime/useLiveState'
 
 cytoscape.use(fcose)
 
@@ -118,7 +119,7 @@ function toElements(g: GraphModel): ElementDefinition[] {
 
 export function GraphPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const scope = params.get('scope') === 'stack' ? 'stack' : 'all'
@@ -129,17 +130,18 @@ export function GraphPage() {
   const [frozenGraph, setFrozenGraph] = useState<GraphModel | null>(null)
 
   const stacksQ = useQuery({
-    queryKey: ['stacks'],
+    queryKey: qk.stacks,
     queryFn: fetchStacks,
-    refetchInterval: paused ? false : live.connected ? 20000 : 5000,
+    refetchInterval: paused ? false : wsConnected ? 20_000 : 8_000,
   })
 
   const graphQ = useQuery({
-    queryKey: ['graph', { scope, stack }],
+    queryKey: qk.graph(scope, stack),
     queryFn: () => fetchGraph({ scope, stack: scope === 'stack' ? stack : undefined }),
     enabled: scope === 'all' || stack.length > 0,
-    refetchInterval: paused ? false : live.connected ? 15000 : 5000,
+    refetchInterval: paused ? false : wsConnected ? 15_000 : 8_000,
     refetchOnWindowFocus: !paused,
+    placeholderData: (prev) => prev,
   })
 
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -177,8 +179,21 @@ export function GraphPage() {
     setFrozenGraph(null)
   }, [scope, stack])
 
+  const topologyKey = useMemo(() => {
+    if (!filtered) return ''
+    return [
+      showImages ? '1' : '0',
+      ...filtered.nodes.map((n) => n.id),
+      ...filtered.edges.map((e) => e.id),
+    ].join('\0')
+  }, [filtered, showImages])
+
+  const filteredRef = useRef(filtered)
+  filteredRef.current = filtered
+
   useEffect(() => {
-    if (!hostRef.current || !filtered) return
+    if (!hostRef.current || !filteredRef.current) return
+    const data = filteredRef.current
 
     if (cyRef.current) {
       cyRef.current.destroy()
@@ -187,7 +202,7 @@ export function GraphPage() {
 
     const cy = cytoscape({
       container: hostRef.current,
-      elements: toElements(filtered),
+      elements: toElements(data),
       style,
       layout: {
         name: 'fcose',
@@ -225,7 +240,7 @@ export function GraphPage() {
       cy.destroy()
       cyRef.current = null
     }
-  }, [filtered, navigate, stack])
+  }, [topologyKey, navigate, stack])
 
   const stackNames = (stacksQ.data?.data ?? []).map((s) => s.name)
 

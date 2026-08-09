@@ -1,9 +1,10 @@
-VERSION ?= dev
+VERSION_FILE := VERSION
+VERSION ?= $(shell tr -d ' \r\n' < $(VERSION_FILE) 2>/dev/null || echo 0.1.0)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 DIST_DIR := internal/uiembed/dist
 
-.PHONY: tidy test test-integration parity ui sync-ui build cross build-all run release-snapshot clean
+.PHONY: tidy test test-integration parity ui sync-ui bump-version build cross build-all run release-snapshot clean
 
 tidy:
 	go mod tidy
@@ -17,6 +18,9 @@ test-integration:
 parity:
 	go run ./cmd/parity-check -skip-stats
 
+bump-version:
+	bash scripts/bump-version.sh
+
 # Build Vite app into web/dist and sync into the embed package.
 ui: sync-ui
 
@@ -27,9 +31,12 @@ sync-ui:
 	cp -R web/dist/. "$(DIST_DIR)/"
 	@test -f "$(DIST_DIR)/index.html"
 
-# Host binary — always refreshes UI first.
-build: sync-ui
+# Host binary — bump patch, refresh UI, stamp SemVer into binary.
+build: bump-version sync-ui
+	$(eval VERSION := $(shell tr -d ' \r\n' < $(VERSION_FILE)))
+	$(eval LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT))
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/docker-visualizer$(shell go env GOEXE) ./cmd/docker-visualizer
+	@echo "Built v$(VERSION)"
 
 # Cross-compile only (assumes embed already synced). Prefer build-all for releases.
 cross:
@@ -41,17 +48,19 @@ cross:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/docker-visualizer-darwin-arm64 ./cmd/docker-visualizer
 	cd bin && sha256sum docker-visualizer-* > SHA256SUMS 2>/dev/null || shasum -a 256 docker-visualizer-* > SHA256SUMS
 
-# Full release matrix: UI sync + all platforms.
-build-all: sync-ui cross
+# Full release matrix: bump + UI sync + all platforms.
+build-all: bump-version sync-ui
+	$(eval VERSION := $(shell tr -d ' \r\n' < $(VERSION_FILE)))
+	$(eval LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT))
+	$(MAKE) cross VERSION=$(VERSION) LDFLAGS="$(LDFLAGS)"
 
 run:
-	go run ./cmd/docker-visualizer
+	go run -ldflags "$(LDFLAGS)" ./cmd/docker-visualizer
 
-release-snapshot: sync-ui
+release-snapshot: bump-version sync-ui
 	goreleaser release --snapshot --clean
 
 clean:
 	rm -rf bin/ dist/ web/dist/
-	# restore embed stub after clean of synced assets
 	mkdir -p "$(DIST_DIR)"
 	@test -f "$(DIST_DIR)/index.html" || true

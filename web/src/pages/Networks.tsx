@@ -2,23 +2,27 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchNetworks } from '../api/client'
+import { qk } from '../api/queryClient'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { useT } from '../i18n'
 import { formatAgeMs } from '../lib/format'
-import { useLiveState } from '../realtime/useLiveState'
+import { useDebouncedValue } from '../lib/useDebouncedValue'
+import { useLiveConnected } from '../realtime/useLiveState'
 
 export function NetworksPage() {
   const t = useT()
-  const live = useLiveState()
+  const wsConnected = useLiveConnected()
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [driver, setDriver] = useState(params.get('driver') ?? '')
   const [selected, setSelected] = useState('')
+  const qDebounced = useDebouncedValue(q, 250)
 
   const query = useQuery({
-    queryKey: ['networks', { q, driver }],
-    queryFn: () => fetchNetworks({ q: q || undefined, driver: driver || undefined }),
-    refetchInterval: live.connected ? 20000 : 5000,
+    queryKey: qk.networks({ q: qDebounced || undefined, driver: driver || undefined }),
+    queryFn: () => fetchNetworks({ q: qDebounced || undefined, driver: driver || undefined }),
+    refetchInterval: wsConnected ? 20_000 : 8_000,
+    placeholderData: (prev) => prev,
   })
 
   const drivers = useMemo(() => {
