@@ -35,6 +35,13 @@ export function ImagesPage() {
   const rows = query.data?.data ?? []
   const untaggedCount = useMemo(() => rows.filter((img) => img.dangling || namedTags(img).length === 0).length, [rows])
   const dataAgeMs = useGrowingAgeMs(query.data?.snapshotAgeMs, query.dataUpdatedAt)
+  const totals = useMemo(() => {
+    let sizeBytes = 0
+    for (const img of rows) {
+      sizeBytes += img.sizeBytes || 0
+    }
+    return { count: rows.length, sizeBytes }
+  }, [rows])
 
   return (
     <div className="page page-fill">
@@ -149,6 +156,14 @@ export function ImagesPage() {
           </tbody>
         </table>
       </div>
+
+      <footer className="list-footer" aria-live="polite">
+        <span className="list-footer-total mono">
+          {t('images.footerTotal', { n: totals.count, size: formatBytes(totals.sizeBytes) })}
+        </span>
+        <span className="muted list-footer-hint">{t('images.footerHint')}</span>
+      </footer>
+
       {selected ? <CliCommandsPanel kind="image" entityRef={selected} /> : null}
     </div>
   )

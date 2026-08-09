@@ -747,11 +747,29 @@ html[data-theme='light'] .graph-host-paused {
   overflow: auto;
 }
 
-.page-fill .cli-panel {
+.page-fill .list-footer {
   flex: 0 0 auto;
-  margin-top: 0.75rem;
-  max-height: 36%;
-  overflow: auto;
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-elev);
+}
+
+.list-footer-total {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-footer-hint {
+  font-size: 0.78rem;
+  max-width: 36rem;
+  line-height: 1.35;
 }
 
 .page-lead {

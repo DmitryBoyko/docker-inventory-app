@@ -311,6 +311,8 @@ export const en: Record<string, string> = {
   'images.untaggedCount': 'without a name: {n}',
   'images.dangling': 'no tags',
   'images.empty': 'No images match filters.',
+  'images.footerTotal': '{n} images · total size {size}',
+  'images.footerHint': 'Sum of reported sizes (shared layers may be counted more than once).',
 
   'graph.title': 'Graph',
   'graph.nodesEdges': '{nodes} nodes · {edges} edges',

@@ -311,6 +311,8 @@ export const ru: Record<string, string> = {
   'images.untaggedCount': 'без имени: {n}',
   'images.dangling': 'без тегов',
   'images.empty': 'Нет образов по фильтру.',
+  'images.footerTotal': 'образов: {n} · суммарный размер {size}',
+  'images.footerHint': 'Сумма размеров из Engine (общие слои могут учитываться несколько раз).',
 
   'graph.title': 'Граф',
   'graph.nodesEdges': 'узлов: {nodes} · рёбер: {edges}',
