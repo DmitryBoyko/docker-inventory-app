@@ -2,12 +2,13 @@
 
 Cross-platform, read-only Docker inventory utility — **one binary** serves API + embedded React UI.
 
-**Status:** Phase 0–12 + V2 (auth, Settings, multi-host, export, log stream, Swarm labels, mobile) + V1 parity.
+**Status:** Phase 0–12 + V2 + **CLI Companion** (Command Registry, provenance, anomaly diagnostics, inventory snapshots, i18n EN/RU, Ctrl/Cmd+K palette). Still read-only — no arbitrary shell execution.
 
 - Architecture: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 - Hardening: [`docs/hardening.md`](docs/hardening.md)
-- Parity: [`docs/parity.md`](docs/parity.md)
-- ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md), [ADR-014](docs/adr/014-multi-host.md))
+- Companion: [`docs/adr/016-cli-companion.md`](docs/adr/016-cli-companion.md), [`docs/cli-companion.md`](docs/cli-companion.md)
+- ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md)–[016](docs/adr/016-cli-companion.md))
+- Open TODOs: [`docs/todos.md`](docs/todos.md)
 - OpenAPI: [`openapi.yaml`](openapi.yaml)
 - UI: [`web/`](web/)
 - Legacy PowerShell source of truth: [`scripts/docker-stack-inventory.ps1`](scripts/docker-stack-inventory.ps1)
@@ -80,11 +81,24 @@ GET /api/v1/images                (?q=&dangling=)
 GET /api/v1/images/{id}
 GET /api/v1/graph                 (?scope=all|stack&stack=name)
 GET /api/v1/export                (?format=json|csv&scope=all|containers|stacks)
+GET /api/v1/metrics/history       (?host=&scope=host|container&id=&from=&to=&step=)
 GET /api/v1/system/df
 GET /api/v1/system/resources
 GET /api/v1/system/info
 GET /api/v1/system/settings
-GET /api/v1/system/diagnostics    (localhost only)
+GET /api/v1/system/diagnostics    (localhost only — support dump)
+GET /api/v1/commands              (Command Registry definitions)
+GET /api/v1/commands/{id}
+GET /api/v1/entities/{kind}/commands (?ref=&shell=bash|powershell|cmd)
+GET /api/v1/diagnostics           (anomaly findings)
+GET /api/v1/diagnostics/{id}
+GET /api/v1/provenance
+GET /api/v1/provenance/{id}
+GET /api/v1/snapshots
+POST /api/v1/snapshots            ({"label":"..."})
+GET /api/v1/snapshots/{id}
+GET /api/v1/snapshots/{id}/diff   (?against=current|<id>)
+DELETE /api/v1/snapshots/{id}
 GET /api/v1/ws                    WebSocket hub
 ```
 
@@ -104,6 +118,10 @@ Flags:
 --inventory-interval 10s
 --stats-interval 1s
 --system-interval 15s
+--metrics-db data/metrics.db       # SQLite history (ADR-015); off disables
+--metrics-interval 10s
+--metrics-retention 24h
+--snapshots-dir data/snapshots     # inventory snapshots (ADR-016); off disables
 ```
 
 Multi-host example:

@@ -2,7 +2,9 @@ import ReactECharts from 'echarts-for-react'
 import { useMemo } from 'react'
 import { formatBytes, formatCpu } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
+import { HistoryCharts } from './HistoryCharts'
 
+/** Live WS tip (~1 min) plus SQLite history (ADR-015). */
 export function LiveCharts() {
   const live = useLiveState()
   const option = useMemo(() => {
@@ -66,19 +68,27 @@ export function LiveCharts() {
   const last = live.history[live.history.length - 1]
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>Live CPU / RAM</h2>
-        <span className="muted tiny">
-          {live.connected ? 'websocket' : 'ws reconnecting…'}
-          {last ? ` · ${formatCpu(last.cpu)} · ${formatBytes(last.mem)}` : null}
-        </span>
-      </div>
-      {live.history.length < 2 ? (
-        <p className="muted">Waiting for stats samples…</p>
-      ) : (
-        <ReactECharts option={option} style={{ height: 260 }} opts={{ renderer: 'canvas' }} />
-      )}
-    </section>
+    <div className="charts-stack">
+      <HistoryCharts
+        scope="host"
+        title="Host CPU / RAM (1h)"
+        rangeHours={1}
+        liveTip={live.history}
+      />
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Live tip</h2>
+          <span className="muted tiny">
+            {live.connected ? 'websocket' : 'ws reconnecting…'}
+            {last ? ` · ${formatCpu(last.cpu)} · ${formatBytes(last.mem)}` : null}
+          </span>
+        </div>
+        {live.history.length < 2 ? (
+          <p className="muted">Waiting for stats samples…</p>
+        ) : (
+          <ReactECharts option={option} style={{ height: 220 }} opts={{ renderer: 'canvas' }} />
+        )}
+      </section>
+    </div>
   )
 }

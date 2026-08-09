@@ -45,6 +45,11 @@ export function setWsConnected(connected: boolean) {
   setState({ connected })
 }
 
+/** Clear ring-buffer history (e.g. host switch). */
+export function resetLiveHistory() {
+  setState({ history: [], statsById: {} })
+}
+
 export function applyConnection(docker: ConnectionStatus) {
   setState({ docker })
 }

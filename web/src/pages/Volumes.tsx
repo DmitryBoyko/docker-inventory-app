@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchVolumes } from '../api/client'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { ProvenanceHint } from '../components/ProvenanceHint'
 import { formatAgeMs, formatByteMetric } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
@@ -10,6 +12,7 @@ export function VolumesPage() {
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [stack, setStack] = useState(params.get('stack') ?? '')
+  const [selected, setSelected] = useState('')
 
   const query = useQuery({
     queryKey: ['volumes', { q, stack }],
@@ -69,10 +72,17 @@ export function VolumesPage() {
           </thead>
           <tbody>
             {rows.map((v) => (
-              <tr key={v.name}>
-                <td className="mono">{v.name}</td>
+              <tr key={v.name} className={selected === v.name ? 'row-selected' : undefined}>
+                <td className="mono">
+                  <button type="button" className="text-link linkish" onClick={() => setSelected(v.name)}>
+                    {v.name}
+                  </button>
+                </td>
                 <td>{v.driver}</td>
-                <td className="num">{formatByteMetric(v.usage)}</td>
+                <td className="num">
+                  {formatByteMetric(v.usage)}{' '}
+                  <ProvenanceHint provenanceId="volume.size" displayedValue={formatByteMetric(v.usage)} />
+                </td>
                 <td className="num">
                   {(v.containers ?? []).map((c, i) => (
                     <span key={c}>
@@ -109,6 +119,7 @@ export function VolumesPage() {
           </tbody>
         </table>
       </div>
+      {selected ? <CliCommandsPanel kind="volume" entityRef={selected} /> : null}
     </div>
   )
 }

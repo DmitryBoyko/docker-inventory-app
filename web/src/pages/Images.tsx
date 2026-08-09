@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchImages } from '../api/client'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { ProvenanceHint } from '../components/ProvenanceHint'
 import { formatAgeMs, formatBytes } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
@@ -10,6 +12,7 @@ export function ImagesPage() {
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [dangling, setDangling] = useState(params.get('dangling') ?? '')
+  const [selected, setSelected] = useState('')
 
   const query = useQuery({
     queryKey: ['images', { q, dangling }],
@@ -57,12 +60,19 @@ export function ImagesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((img) => (
-              <tr key={img.id}>
+            {rows.map((img) => {
+              const tag = (img.repoTags ?? []).find((x) => x !== '<none>:<none>') || img.id
+              return (
+              <tr key={img.id} className={selected === tag ? 'row-selected' : undefined}>
                 <td className="mono">
-                  {(img.repoTags ?? []).filter((t) => t !== '<none>:<none>').join(', ') || '—'}
+                  <button type="button" className="text-link linkish" onClick={() => setSelected(tag)}>
+                    {(img.repoTags ?? []).filter((x) => x !== '<none>:<none>').join(', ') || '—'}
+                  </button>
                 </td>
-                <td className="num">{formatBytes(img.sizeBytes)}</td>
+                <td className="num">
+                  {formatBytes(img.sizeBytes)}{' '}
+                  <ProvenanceHint provenanceId="image.size" displayedValue={formatBytes(img.sizeBytes)} />
+                </td>
                 <td className="num">
                   {img.sharedSizeBytes == null ? 'n/a' : formatBytes(img.sharedSizeBytes)}
                 </td>
@@ -80,7 +90,8 @@ export function ImagesPage() {
                 <td>{img.dangling ? <span className="pill health-unhealthy">dangling</span> : '—'}</td>
                 <td className="mono">{img.idShort}</td>
               </tr>
-            ))}
+              )
+            })}
             {!query.isLoading && rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="muted center">
@@ -91,6 +102,7 @@ export function ImagesPage() {
           </tbody>
         </table>
       </div>
+      {selected ? <CliCommandsPanel kind="image" entityRef={selected} /> : null}
     </div>
   )
 }

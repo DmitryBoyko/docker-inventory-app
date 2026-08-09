@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, type ReactNode } from 'react'
 import { HOST_CHANGE_EVENT } from '../lib/prefs'
-import { onSnapshotUpdated } from './store'
+import { onSnapshotUpdated, resetLiveHistory } from './store'
 import { startRealtime } from './wsClient'
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
@@ -26,10 +26,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     })
 
     const onHostChange = () => {
+      resetLiveHistory()
       handle.stop()
       handle = startRealtime()
       void qc.invalidateQueries({ queryKey: ['ready'] })
       void qc.invalidateQueries({ queryKey: ['hosts'] })
+      void qc.invalidateQueries({ queryKey: ['metrics'] })
     }
     window.addEventListener(HOST_CHANGE_EVENT, onHostChange)
 

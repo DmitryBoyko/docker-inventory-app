@@ -20,11 +20,29 @@ import (
 
 const defaultStatsConcurrency = 16
 
+// MetricsRecorder persists downsampled historical samples (ADR-015). Optional.
+type MetricsRecorder interface {
+	Record(host string, at time.Time, containers []MetricsContainerSample) error
+}
+
+// MetricsContainerSample is the subset of stats written to history.
+type MetricsContainerSample struct {
+	ID    string
+	Name  string
+	Stack string
+	CPU   float64
+	Mem   int64
+	NetRx int64
+	NetTx int64
+}
+
 // StatsCollector samples running-container stats (CLI-compatible one-shot).
 type StatsCollector struct {
 	Docker      *docker.Client
 	Store       *store.Store
 	Hub         ws.Bus
+	HostName    string
+	Metrics     MetricsRecorder
 	Interval    time.Duration
 	Concurrency int
 	Log         *slog.Logger
@@ -137,8 +155,10 @@ func (c *StatsCollector) collectOnce(ctx context.Context) {
 	}
 	wg.Wait()
 
-	c.Store.MergeStats(stats, time.Now().UTC())
+	at := time.Now().UTC()
+	c.Store.MergeStats(stats, at)
 	c.publishStats()
+	c.recordMetrics(at)
 	if c.Health != nil {
 		c.Health.RecordSuccess("stats", time.Since(start))
 	}
@@ -147,6 +167,35 @@ func (c *StatsCollector) collectOnce(ctx context.Context) {
 		"ok", okCount,
 		"duration_ms", time.Since(start).Milliseconds(),
 	)
+}
+
+func (c *StatsCollector) recordMetrics(at time.Time) {
+	if c.Metrics == nil {
+		return
+	}
+	snap := c.Store.Load()
+	samples := make([]MetricsContainerSample, 0, len(snap.Containers))
+	for _, ctr := range snap.Containers {
+		if ctr.Stats == nil {
+			continue
+		}
+		samples = append(samples, MetricsContainerSample{
+			ID:    ctr.ID,
+			Name:  ctr.Name,
+			Stack: ctr.Stack,
+			CPU:   ctr.Stats.CPUPercent,
+			Mem:   ctr.Stats.MemoryBytes,
+			NetRx: ctr.Stats.NetworkRxBytes,
+			NetTx: ctr.Stats.NetworkTxBytes,
+		})
+	}
+	host := c.HostName
+	if host == "" {
+		host = "default"
+	}
+	if err := c.Metrics.Record(host, at, samples); err != nil {
+		c.Log.Warn("metrics record failed", "host", host, "err", err)
+	}
 }
 
 func (c *StatsCollector) publishStats() {

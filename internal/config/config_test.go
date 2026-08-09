@@ -29,6 +29,25 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.SystemInterval != 15*time.Second {
 		t.Fatalf("system=%s", cfg.SystemInterval)
 	}
+	if cfg.MetricsDBPath != "data/metrics.db" {
+		t.Fatalf("metrics-db=%s", cfg.MetricsDBPath)
+	}
+	if !cfg.MetricsEnabled() {
+		t.Fatal("metrics should be enabled by default")
+	}
+	if cfg.MetricsInterval != 10*time.Second || cfg.MetricsRetention != 24*time.Hour {
+		t.Fatalf("metrics interval/retention=%s/%s", cfg.MetricsInterval, cfg.MetricsRetention)
+	}
+}
+
+func TestLoad_MetricsOff(t *testing.T) {
+	cfg, err := Load([]string{"-metrics-db", "off"}, "dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.MetricsEnabled() {
+		t.Fatal("expected disabled")
+	}
 }
 
 func TestLoad_Flags(t *testing.T) {

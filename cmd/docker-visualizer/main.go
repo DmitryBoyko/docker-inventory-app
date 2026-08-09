@@ -14,6 +14,8 @@ import (
 	"github.com/epm-games/docker-visualizer/internal/config"
 	"github.com/epm-games/docker-visualizer/internal/hosts"
 	"github.com/epm-games/docker-visualizer/internal/httpapi"
+	"github.com/epm-games/docker-visualizer/internal/metricsdb"
+	snapstore "github.com/epm-games/docker-visualizer/internal/snapshots"
 	"github.com/epm-games/docker-visualizer/internal/uiembed"
 	"github.com/epm-games/docker-visualizer/internal/ws"
 )
@@ -44,6 +46,42 @@ func main() {
 	}
 
 	hub := ws.NewHub(log)
+
+	var metricsStore *metricsdb.Store
+	if path, ok := config.ParseMetricsDB(cfg.MetricsDBPath); ok {
+		ms, err := metricsdb.Open(metricsdb.Options{
+			Path:           path,
+			Retention:      cfg.MetricsRetention,
+			SampleInterval: cfg.MetricsInterval,
+		})
+		if err != nil {
+			log.Error("metrics db", "err", err, "path", path)
+			os.Exit(1)
+		}
+		metricsStore = ms
+		defer func() { _ = metricsStore.Close() }()
+		log.Info("historical metrics enabled",
+			"path", path,
+			"interval", cfg.MetricsInterval.String(),
+			"retention", cfg.MetricsRetention.String(),
+		)
+	} else {
+		log.Info("historical metrics disabled")
+	}
+
+	var inventorySnaps *snapstore.Store
+	if path, ok := config.ParseSnapshotsDir(cfg.SnapshotsDir); ok {
+		ss, err := snapstore.NewStore(path)
+		if err != nil {
+			log.Error("snapshots store", "err", err, "path", path)
+			os.Exit(1)
+		}
+		inventorySnaps = ss
+		log.Info("inventory snapshots enabled", "path", path)
+	} else {
+		log.Info("inventory snapshots disabled")
+	}
+
 	reg, err := hosts.Build(hosts.Options{
 		Hosts:             cfg.DockerHosts,
 		DockerConfigDir:   cfg.DockerConfigDir,
@@ -51,6 +89,8 @@ func main() {
 		InventoryInterval: cfg.InventoryInterval,
 		StatsInterval:     cfg.StatsInterval,
 		SystemInterval:    cfg.SystemInterval,
+		Metrics:           metricsStore,
+		Snapshots:         inventorySnaps,
 		Hub:               hub,
 		Log:               log,
 	})
@@ -74,11 +114,18 @@ func main() {
 	defer cancelCollectors()
 
 	go hub.Run(runCtx.Done())
+	if metricsStore != nil {
+		go metricsStore.RunPruner(runCtx)
+	}
 	for _, name := range reg.Names() {
 		rt, _ := reg.Get(name)
 		rt.StartCollectors(runCtx)
 	}
 
+	metricsPath := ""
+	if metricsStore != nil {
+		metricsPath = metricsStore.Path()
+	}
 	srv := &httpapi.Server{
 		Hosts:         reg,
 		Hub:           hub,
@@ -92,7 +139,11 @@ func main() {
 			"stats":     cfg.StatsInterval.String(),
 			"system":    cfg.SystemInterval.String(),
 		},
-		StartedAt: startedAt,
+		MetricsEnabled:   metricsStore != nil,
+		MetricsDBPath:    metricsPath,
+		MetricsInterval:  cfg.MetricsInterval.String(),
+		MetricsRetention: cfg.MetricsRetention.String(),
+		StartedAt:        startedAt,
 	}
 	handler := attachUI(srv.Handler(), log)
 	handler = httpapi.Chain(handler,

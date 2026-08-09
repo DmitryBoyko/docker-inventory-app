@@ -233,6 +233,24 @@ export type ApiErrorBody = {
   timestamp: string
 }
 
+export type MetricsPoint = {
+  t: number
+  cpu: number
+  mem: number
+  netRx?: number
+  netTx?: number
+}
+
+export type MetricsHistory = {
+  scope: string
+  host: string
+  id?: string
+  from: string
+  to: string
+  stepSeconds: number
+  points: MetricsPoint[]
+}
+
 export type SystemSettings = {
   listen: string
   listenLoopback: boolean
@@ -244,7 +262,101 @@ export type SystemSettings = {
   uiEmbedded: boolean
   defaultHost?: string
   hosts?: HostInfo[]
+  metrics?: {
+    enabled: boolean
+    dbPath?: string
+    interval?: string
+    retention?: string
+  }
   defaults: {
     inspectRedact: boolean
   }
 }
+
+export type RiskLevel = 'READ_ONLY' | 'INTERACTIVE' | 'STATE_CHANGING' | 'DESTRUCTIVE'
+export type FindingSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
+export type EntityKind = 'container' | 'network' | 'volume' | 'image' | 'system' | 'stack'
+
+export type RenderedCommand = {
+  definitionId: string
+  titleKey: string
+  descriptionKey: string
+  title: string
+  description: string
+  category: string
+  entityKind: EntityKind
+  riskLevel: RiskLevel
+  requiresTTY?: boolean
+  shell: 'bash' | 'powershell' | 'cmd'
+  command: string
+  entityRef: string
+}
+
+export type Finding = {
+  id: string
+  ruleId: string
+  severity: FindingSeverity
+  entity: { kind: string; id?: string; name?: string }
+  titleKey: string
+  descriptionKey: string
+  reasonKey: string
+  recommendationKey: string
+  title: string
+  description: string
+  reason: string
+  recommendation: string
+  evidence?: Record<string, unknown>
+  relatedCommands?: string[]
+}
+
+export type ProvenanceSpec = {
+  id: string
+  title: string
+  titleKey: string
+  entityKind: string
+  apiEndpoint: string
+  dockerField?: string
+  transformation?: string
+  transformationKey?: string
+  description: string
+  descriptionKey: string
+  relatedCommands?: string[]
+  chain?: string[]
+}
+
+export type SnapshotMeta = {
+  id: string
+  createdAt: string
+  hostName: string
+  endpoint?: string
+  context?: string
+  dockerVersion?: string
+  label?: string
+  counts: {
+    containers: number
+    images: number
+    networks: number
+    volumes: number
+    stacks: number
+  }
+}
+
+export type SnapshotChange = {
+  kind: 'added' | 'removed' | 'modified'
+  id: string
+  name: string
+  fields?: { field: string; from?: unknown; to?: unknown }[]
+}
+
+export type SnapshotDiff = {
+  leftId: string
+  rightId: string
+  leftAt?: string
+  rightAt?: string
+  containers: SnapshotChange[]
+  images: SnapshotChange[]
+  networks: SnapshotChange[]
+  volumes: SnapshotChange[]
+  stacks: SnapshotChange[]
+}
+

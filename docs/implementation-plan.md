@@ -1057,11 +1057,11 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 - Optional auth when binding non-localhost ✅ (ADR-013, Settings UI token)  
 - Settings (intervals display, theme, redact default) ✅  
 - Multi-host (multiple Docker endpoints) ✅ — ADR-014, `--docker-hosts`, `GET /api/v1/hosts`, `?host=`
-- Historical metrics (SQLite)  
+- Historical metrics (SQLite) ✅ — ADR-015, `--metrics-db`, `GET /api/v1/metrics/history`  
 - Log stream WS ✅ — `GET /api/v1/containers/{id}/logs/ws`  
 - Swarm stack labels ✅ — `com.docker.stack.namespace` (+ service name)  
 - Export JSON/CSV (structured PS replacement) ✅ — `GET /api/v1/export`  
-- Optional safe mutations behind explicit `--enable-mutate`  
+- Optional safe mutations behind explicit `--enable-mutate` — see [`docs/todos.md`](todos.md)  
 - Mobile-responsive polish ✅ — collapsible nav, 900/640 breakpoints  
 
 ---

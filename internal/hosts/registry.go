@@ -11,7 +11,9 @@ import (
 	"github.com/epm-games/docker-visualizer/internal/collector"
 	"github.com/epm-games/docker-visualizer/internal/config"
 	"github.com/epm-games/docker-visualizer/internal/docker"
+	"github.com/epm-games/docker-visualizer/internal/metricsdb"
 	"github.com/epm-games/docker-visualizer/internal/observability"
+	snapstore "github.com/epm-games/docker-visualizer/internal/snapshots"
 	"github.com/epm-games/docker-visualizer/internal/store"
 	"github.com/epm-games/docker-visualizer/internal/ws"
 )
@@ -41,6 +43,10 @@ type Runtime struct {
 	System     *app.SystemService
 	Graph      *app.GraphService
 	Export     *app.ExportService
+	Metrics    *app.MetricsService
+	Commands   *app.CommandsService
+	Findings   *app.FindingsService
+	Snapshots  *app.SnapshotsService
 	Events     interface {
 		Connected() bool
 		LastError() string
@@ -144,8 +150,28 @@ type Options struct {
 	InventoryInterval time.Duration
 	StatsInterval     time.Duration
 	SystemInterval    time.Duration
+	Metrics           *metricsdb.Store   // optional shared history DB (ADR-015)
+	Snapshots         *snapstore.Store   // optional persisted inventory snapshots
 	Hub               *ws.Hub
 	Log               *slog.Logger
+}
+
+type metricsBridge struct {
+	store *metricsdb.Store
+}
+
+func (b metricsBridge) Record(host string, at time.Time, containers []collector.MetricsContainerSample) error {
+	if b.store == nil {
+		return nil
+	}
+	out := make([]metricsdb.ContainerSample, 0, len(containers))
+	for _, c := range containers {
+		out = append(out, metricsdb.ContainerSample{
+			ID: c.ID, Name: c.Name, Stack: c.Stack,
+			CPU: c.CPU, Mem: c.Mem, NetRx: c.NetRx, NetTx: c.NetTx,
+		})
+	}
+	return b.store.Record(host, at, out)
 }
 
 // Build connects each configured host and prepares collectors (call StartCollectors).
@@ -177,8 +203,13 @@ func Build(opts Options) (*Registry, error) {
 		inv := &collector.InventoryCollector{
 			Docker: cli, Store: st, Hub: bus, Interval: opts.InventoryInterval, Log: opts.Log, Health: health,
 		}
+		var metricsRec collector.MetricsRecorder
+		if opts.Metrics != nil {
+			metricsRec = metricsBridge{store: opts.Metrics}
+		}
 		statsCol := &collector.StatsCollector{
-			Docker: cli, Store: st, Hub: bus, Interval: opts.StatsInterval, Log: opts.Log, Health: health,
+			Docker: cli, Store: st, Hub: bus, HostName: spec.Name, Metrics: metricsRec,
+			Interval: opts.StatsInterval, Log: opts.Log, Health: health,
 		}
 		sysCol := &collector.SystemCollector{
 			Docker: cli, Store: st, Hub: bus, Interval: opts.SystemInterval, Log: opts.Log, Health: health,
@@ -201,6 +232,10 @@ func Build(opts Options) (*Registry, error) {
 			System:     &app.SystemService{Store: st},
 			Graph:      &app.GraphService{Store: st},
 			Export:     &app.ExportService{Store: st},
+			Metrics:    &app.MetricsService{DB: opts.Metrics, Host: name},
+			Commands:   &app.CommandsService{Store: st, Docker: cli, Host: name},
+			Findings:   &app.FindingsService{Store: st},
+			Snapshots:  &app.SnapshotsService{Store: st, Docker: cli, Disk: opts.Snapshots, Host: name},
 			Events:     eventsCol,
 			Health:     health,
 			Bus:        bus,

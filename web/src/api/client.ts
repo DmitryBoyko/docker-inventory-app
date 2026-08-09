@@ -9,6 +9,7 @@ import type {
   Network,
   ReadyResponse,
   Stack,
+  MetricsHistory,
   SystemInfo,
   SystemResources,
   SystemSettings,
@@ -171,6 +172,106 @@ export function fetchSystemInfo() {
 
 export function fetchSystemSettings() {
   return getJSON<ApiEnvelope<SystemSettings>>(`${API}/system/settings`)
+}
+
+export function fetchEntityCommands(kind: string, ref = '', shell?: string) {
+  const qs = new URLSearchParams()
+  if (ref) qs.set('ref', ref)
+  if (shell) qs.set('shell', shell)
+  const base =
+    kind === 'system'
+      ? `${API}/entities/system/commands`
+      : `${API}/entities/${encodeURIComponent(kind)}/commands`
+  const suffix = qs.size ? `?${qs}` : ''
+  return getJSON<{
+    timestamp: string
+    host: string
+    data: import('./types').RenderedCommand[]
+  }>(`${base}${suffix}`)
+}
+
+export function fetchDiagnostics() {
+  return getJSON<{
+    timestamp: string
+    host: string
+    count: number
+    data: import('./types').Finding[]
+  }>(`${API}/diagnostics`)
+}
+
+export function fetchProvenance(id?: string) {
+  if (id) {
+    return getJSON<{ timestamp: string; data: import('./types').ProvenanceSpec }>(
+      `${API}/provenance/${encodeURIComponent(id)}`,
+    )
+  }
+  return getJSON<{ timestamp: string; data: import('./types').ProvenanceSpec[] }>(`${API}/provenance`)
+}
+
+export function fetchSnapshots() {
+  return getJSON<{ timestamp: string; host: string; data: import('./types').SnapshotMeta[] }>(
+    `${API}/snapshots`,
+  )
+}
+
+export async function createSnapshot(label?: string) {
+  const res = await fetch(withHost(`${API}/snapshots`), {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label: label ?? '' }),
+  })
+  const body = await res.json()
+  if (!res.ok) {
+    throw new ApiError(res.status, body?.error?.code ?? 'http_error', body?.error?.message ?? `HTTP ${res.status}`)
+  }
+  return body as { timestamp: string; host: string; data: import('./types').SnapshotMeta }
+}
+
+export function fetchSnapshotDiff(id: string, against = 'current') {
+  const qs = new URLSearchParams({ against })
+  return getJSON<{ timestamp: string; host: string; data: import('./types').SnapshotDiff }>(
+    `${API}/snapshots/${encodeURIComponent(id)}/diff?${qs}`,
+  )
+}
+
+export async function deleteSnapshot(id: string) {
+  const res = await fetch(withHost(`${API}/snapshots/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as ApiErrorBody
+      message = body.error?.message ?? message
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, 'delete_failed', message)
+  }
+}
+
+export type MetricsHistoryScope = 'host' | 'container'
+
+export function fetchMetricsHistory(params?: {
+  scope?: MetricsHistoryScope
+  id?: string
+  from?: string
+  to?: string
+  step?: string
+}) {
+  const qs = new URLSearchParams()
+  if (params?.scope) qs.set('scope', params.scope)
+  if (params?.id) qs.set('id', params.id)
+  if (params?.from) qs.set('from', params.from)
+  if (params?.to) qs.set('to', params.to)
+  if (params?.step) qs.set('step', params.step)
+  const suffix = qs.size ? `?${qs}` : ''
+  return getJSON<{
+    timestamp: string
+    host: string
+    data: MetricsHistory
+  }>(`${API}/metrics/history${suffix}`)
 }
 
 export type ExportFormat = 'json' | 'csv'

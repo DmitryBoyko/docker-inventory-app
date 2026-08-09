@@ -16,15 +16,19 @@ import (
 
 // Server is the HTTP API surface (multi-host via Hosts registry, ADR-014).
 type Server struct {
-	Hosts         *hosts.Registry
-	Hub           *ws.Hub
-	Version       string
-	Commit        string
-	Listen        string
-	AuthEnabled   bool
-	DockerTimeout string
-	Intervals     map[string]string
-	StartedAt     time.Time
+	Hosts            *hosts.Registry
+	Hub              *ws.Hub
+	Version          string
+	Commit           string
+	Listen           string
+	AuthEnabled      bool
+	DockerTimeout    string
+	Intervals        map[string]string
+	MetricsEnabled   bool
+	MetricsDBPath    string
+	MetricsInterval  string
+	MetricsRetention string
+	StartedAt        time.Time
 }
 
 // Handler returns the root mux. API lives under /api/v1.
@@ -59,6 +63,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/v1/graph", s.handleGraph)
 	mux.HandleFunc("GET /api/v1/export", s.handleExport)
+	mux.HandleFunc("GET /api/v1/metrics/history", s.handleMetricsHistory)
 
 	mux.HandleFunc("GET /api/v1/system/df", s.handleSystemDF)
 	mux.HandleFunc("GET /api/v1/system/resources", s.handleSystemResources)
@@ -66,6 +71,24 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/system/settings", s.handleSystemSettings)
 	mux.HandleFunc("GET /api/v1/system/diagnostics", s.handleDiagnostics)
 	mux.HandleFunc("GET /api/v1/ws", s.handleWS)
+
+	mux.HandleFunc("GET /api/v1/commands", s.handleListCommandDefs)
+	mux.HandleFunc("GET /api/v1/commands/{id}", s.handleGetCommandDef)
+	mux.HandleFunc("GET /api/v1/entities/{kind}/{ref}/commands", s.handleEntityCommands)
+	mux.HandleFunc("GET /api/v1/entities/{kind}/commands", s.handleEntityCommands)
+
+	mux.HandleFunc("GET /api/v1/diagnostics", s.handleListFindings)
+	mux.HandleFunc("GET /api/v1/diagnostics/{id}", s.handleGetFinding)
+
+	mux.HandleFunc("GET /api/v1/provenance", s.handleListProvenance)
+	mux.HandleFunc("GET /api/v1/provenance/{id}", s.handleGetProvenance)
+
+	mux.HandleFunc("GET /api/v1/snapshots", s.handleListSnapshots)
+	mux.HandleFunc("POST /api/v1/snapshots", s.handleCreateSnapshot)
+	mux.HandleFunc("GET /api/v1/snapshots/{id}", s.handleGetSnapshot)
+	mux.HandleFunc("GET /api/v1/snapshots/{id}/diff", s.handleSnapshotDiff)
+	mux.HandleFunc("DELETE /api/v1/snapshots/{id}", s.handleDeleteSnapshot)
+
 	return mux
 }
 
@@ -532,7 +555,13 @@ func (s *Server) handleSystemSettings(w http.ResponseWriter, r *http.Request) {
 			"uiEmbedded":     uiembed.Available(),
 			"defaultHost":    defaultHost,
 			"hosts":          hostList,
-			"defaults":       map[string]any{"inspectRedact": true},
+			"metrics": map[string]any{
+				"enabled":   s.MetricsEnabled,
+				"dbPath":    s.MetricsDBPath,
+				"interval":  s.MetricsInterval,
+				"retention": s.MetricsRetention,
+			},
+			"defaults": map[string]any{"inspectRedact": true},
 		},
 	})
 }

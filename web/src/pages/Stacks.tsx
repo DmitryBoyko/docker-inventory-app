@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchStacks } from '../api/client'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function StacksPage() {
   const live = useLiveState()
+  const [selected, setSelected] = useState('')
   const query = useQuery({
     queryKey: ['stacks'],
     queryFn: fetchStacks,
@@ -43,13 +46,17 @@ export function StacksPage() {
           </thead>
           <tbody>
             {stacks.map((s) => (
-              <tr key={s.name}>
+              <tr key={s.name} className={selected === s.name ? 'row-selected' : undefined}>
                 <td>
-                  <Link className="text-link mono" to={`/containers?stack=${encodeURIComponent(s.name)}`}>
+                  <button type="button" className="text-link linkish mono" onClick={() => setSelected(s.name)}>
                     {s.name}
-                  </Link>
+                  </button>
                   <div className="muted tiny">
                     {s.containers.length} containers ·{' '}
+                    <Link className="text-link" to={`/containers?stack=${encodeURIComponent(s.name)}`}>
+                      containers
+                    </Link>
+                    {' · '}
                     <Link className="text-link" to={`/graph?scope=stack&stack=${encodeURIComponent(s.name)}`}>
                       graph
                     </Link>
@@ -76,6 +83,7 @@ export function StacksPage() {
           </tbody>
         </table>
       </div>
+      {selected ? <CliCommandsPanel kind="stack" entityRef={selected} /> : null}
     </div>
   )
 }

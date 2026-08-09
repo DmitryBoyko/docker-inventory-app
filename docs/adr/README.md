@@ -18,5 +18,7 @@ Canonical decisions for Docker Visualizer. Source narrative: [`../implementation
 | [ADR-012](012-snapshot-store.md) | In-memory snapshot store |
 | [ADR-013](013-auth-token.md) | Bearer token for non-localhost bind |
 | [ADR-014](014-multi-host.md) | Multi-host Docker endpoints |
+| [ADR-015](015-historical-metrics.md) | Historical metrics (SQLite) |
+| [ADR-016](016-cli-companion.md) | CLI Companion (commands, diagnostics, snapshots) |
 
 To change a decision: add a superseding ADR and update the implementation plan.

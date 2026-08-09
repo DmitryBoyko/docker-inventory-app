@@ -18,6 +18,10 @@ tags:
   - name: Volumes
   - name: Images
   - name: System
+  - name: Commands
+  - name: Diagnostics
+  - name: Provenance
+  - name: Snapshots
 
 paths:
   /health:
@@ -49,6 +53,59 @@ paths:
                 $ref: "#/components/schemas/ReadyResponse"
         "503":
           description: Docker unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /metrics/history:
+    get:
+      tags: [System]
+      summary: Historical CPU/RAM samples (SQLite, ADR-015)
+      operationId: getMetricsHistory
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [host, container]
+            default: host
+        - name: id
+          in: query
+          description: Container id (full or short) when scope=container
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: step
+          in: query
+          description: Bucket size (Go duration, e.g. 10s, 1m)
+          schema: { type: string }
+      responses:
+        "200":
+          description: Time series
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, host, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  host: { type: string }
+                  data:
+                    $ref: "#/components/schemas/MetricsHistory"
+        "400":
+          description: Bad query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Metrics disabled
           content:
             application/json:
               schema:
@@ -758,6 +815,208 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /commands:
+    get:
+      tags: [Commands]
+      summary: List Command Registry definitions
+      operationId: listCommands
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Command definitions
+        "401":
+          description: Unauthorized
+
+  /commands/{id}:
+    get:
+      tags: [Commands]
+      summary: Get one command definition
+      operationId: getCommand
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Definition
+        "404":
+          description: Not found
+
+  /entities/{kind}/commands:
+    get:
+      tags: [Commands]
+      summary: Generate context-aware CLI commands for an entity
+      operationId: getEntityCommands
+      description: |
+        Renders Bash / PowerShell / CMD strings. Does not execute commands.
+        Prefer `?ref=` for refs containing path separators.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: [container, network, volume, image, system, stack] }
+        - name: ref
+          in: query
+          schema: { type: string }
+        - name: shell
+          in: query
+          schema: { type: string, enum: [bash, powershell, cmd] }
+      responses:
+        "200":
+          description: Rendered commands
+        "400":
+          description: Bad request
+
+  /diagnostics:
+    get:
+      tags: [Diagnostics]
+      summary: Anomaly findings from current inventory
+      operationId: listDiagnostics
+      description: Explainable findings (not the localhost support dump at /system/diagnostics).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+      responses:
+        "200":
+          description: Findings list
+
+  /diagnostics/{id}:
+    get:
+      tags: [Diagnostics]
+      summary: Get one finding
+      operationId: getDiagnostic
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Finding
+        "404":
+          description: Not found
+
+  /provenance:
+    get:
+      tags: [Provenance]
+      summary: List data provenance specs
+      operationId: listProvenance
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Provenance catalog
+
+  /provenance/{id}:
+    get:
+      tags: [Provenance]
+      summary: Get one provenance spec
+      operationId: getProvenance
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Spec
+        "404":
+          description: Not found
+
+  /snapshots:
+    get:
+      tags: [Snapshots]
+      summary: List inventory snapshots
+      operationId: listSnapshots
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+      responses:
+        "200":
+          description: Snapshot metas
+        "503":
+          description: Snapshots disabled
+    post:
+      tags: [Snapshots]
+      summary: Create inventory snapshot
+      operationId: createSnapshot
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+      responses:
+        "201":
+          description: Created
+        "503":
+          description: Snapshots disabled
+
+  /snapshots/{id}:
+    get:
+      tags: [Snapshots]
+      summary: Get snapshot
+      operationId: getSnapshot
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Snapshot
+        "404":
+          description: Not found
+    delete:
+      tags: [Snapshots]
+      summary: Delete snapshot
+      operationId: deleteSnapshot
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /snapshots/{id}/diff:
+    get:
+      tags: [Snapshots]
+      summary: Diff snapshot against current or another snapshot
+      operationId: diffSnapshot
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/HostQuery"
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: against
+          in: query
+          schema: { type: string, default: current }
+      responses:
+        "200":
+          description: Diff
+        "404":
+          description: Not found
+
   /ws:
     get:
       tags: [System]
@@ -824,6 +1083,31 @@ components:
         connected: { type: boolean }
         error: { type: string }
 
+    MetricsPoint:
+      type: object
+      required: [t, cpu, mem]
+      properties:
+        t: { type: integer, format: int64, description: Unix milliseconds }
+        cpu: { type: number }
+        mem: { type: integer, format: int64 }
+        netRx: { type: integer, format: int64 }
+        netTx: { type: integer, format: int64 }
+
+    MetricsHistory:
+      type: object
+      required: [scope, host, from, to, stepSeconds, points]
+      properties:
+        scope: { type: string, enum: [host, container] }
+        host: { type: string }
+        id: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        stepSeconds: { type: integer }
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsPoint"
+
     SystemSettings:
       type: object
       required:
@@ -844,6 +1128,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HostInfo"
+        metrics:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            dbPath: { type: string }
+            interval: { type: string }
+            retention: { type: string }
         defaults:
           type: object
           required: [inspectRedact]

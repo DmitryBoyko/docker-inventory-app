@@ -1,25 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { ApiError, fetchSystemSettings } from '../api/client'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ExportButtons } from '../components/ExportButtons'
+import { useI18n } from '../i18n'
 import {
   clearAuthToken,
   getAuthToken,
   getInspectRedactDefault,
+  getLocale,
   getTheme,
   setAuthToken,
   setInspectRedactDefault,
   setTheme,
+  type Locale,
   type Theme,
 } from '../lib/prefs'
 import { useLiveState } from '../realtime/useLiveState'
 
 export function SettingsPage() {
   const live = useLiveState()
+  const { locale, setLocale, t } = useI18n()
   const [theme, setThemeState] = useState<Theme>(() => getTheme())
   const [tokenDraft, setTokenDraft] = useState(() => getAuthToken())
   const [redact, setRedact] = useState(() => getInspectRedactDefault())
   const [savedMsg, setSavedMsg] = useState('')
+  const [lang, setLang] = useState<Locale>(() => getLocale())
 
   const settingsQ = useQuery({
     queryKey: ['system-settings'],
@@ -118,6 +124,14 @@ export function SettingsPage() {
               <dd className="mono">{data.defaultHost ?? 'default'}</dd>
             </div>
             <div>
+              <dt>Metrics DB</dt>
+              <dd className="mono">
+                {data.metrics?.enabled
+                  ? `${data.metrics.dbPath ?? '—'} · ${data.metrics.interval ?? '?'} / keep ${data.metrics.retention ?? '?'}`
+                  : 'off'}
+              </dd>
+            </div>
+            <div>
               <dt>Inspect redact default</dt>
               <dd>{data.defaults.inspectRedact ? 'on' : 'off'}</dd>
             </div>
@@ -151,16 +165,33 @@ export function SettingsPage() {
       </section>
 
       <section className="panel settings-panel">
-        <h2>Client</h2>
+        <h2>{t('settings.client')}</h2>
+        <label className="field">
+          <span>{t('settings.language')}</span>
+          <select
+            className="select"
+            value={lang}
+            onChange={(e) => {
+              const next = e.target.value as Locale
+              setLang(next)
+              setLocale(next)
+            }}
+          >
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+          </select>
+        </label>
+        <p className="muted tiny">Current locale: {locale}</p>
+
         <label className="field">
           <span>Theme</span>
           <select
             className="select"
             value={theme}
             onChange={(e) => {
-              const t = e.target.value as Theme
-              setThemeState(t)
-              setTheme(t)
+              const next = e.target.value as Theme
+              setThemeState(next)
+              setTheme(next)
             }}
           >
             <option value="dark">Dark</option>
@@ -220,18 +251,19 @@ export function SettingsPage() {
           <div>
             <dt>Docker</dt>
             <dd>
-              {live.docker == null ? '—' : live.docker.connected ? 'connected' : 'disconnected'}
+              {live.docker?.connected
+                ? `${live.docker.host} (${live.docker.source})`
+                : live.docker?.error || 'unknown'}
             </dd>
           </div>
           <div>
-            <dt>Events stream</dt>
-            <dd>
-              {live.events == null ? '—' : live.events.connected ? 'up' : 'down'}
-            </dd>
+            <dt>Events</dt>
+            <dd>{live.events?.connected ? 'connected' : live.events?.error || 'disconnected'}</dd>
           </div>
         </dl>
-        <p className="muted tiny">Reconnect is automatic with exponential backoff.</p>
       </section>
+
+      <CliCommandsPanel kind="system" entityRef="" />
     </div>
   )
 }

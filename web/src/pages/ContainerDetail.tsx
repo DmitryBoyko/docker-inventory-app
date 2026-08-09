@@ -6,17 +6,22 @@ import {
   fetchContainerInspect,
   fetchContainerLogs,
 } from '../api/client'
+import { HistoryCharts } from '../components/HistoryCharts'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
+import { ProvenanceHint } from '../components/ProvenanceHint'
+import { useT } from '../i18n'
 import { formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
 import { startLogStream } from '../lib/logStream'
 import { getInspectRedactDefault } from '../lib/prefs'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveState } from '../realtime/useLiveState'
 
-const tabs = ['overview', 'ports', 'networks', 'volumes', 'stats', 'logs', 'inspect'] as const
+const tabs = ['overview', 'ports', 'networks', 'volumes', 'stats', 'logs', 'inspect', 'commands'] as const
 type Tab = (typeof tabs)[number]
 const MAX_LIVE_LOG_CHARS = 512 * 1024
 
 export function ContainerDetailPage() {
+  const t = useT()
   const { id = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const tab = (tabs.includes(params.get('tab') as Tab) ? params.get('tab') : 'overview') as Tab
@@ -125,14 +130,14 @@ export function ContainerDetailPage() {
       </div>
 
       <div className="tabs">
-        {tabs.map((t) => (
+        {tabs.map((tabId) => (
           <button
-            key={t}
+            key={tabId}
             type="button"
-            className={t === tab ? 'tab active' : 'tab'}
-            onClick={() => setTab(t)}
+            className={tabId === tab ? 'tab active' : 'tab'}
+            onClick={() => setTab(tabId)}
           >
-            {t}
+            {t(`tab.${tabId}`)}
           </button>
         ))}
       </div>
@@ -154,7 +159,9 @@ export function ContainerDetailPage() {
               </dd>
             </div>
             <div>
-              <dt>Restarts</dt>
+              <dt>
+                Restarts <ProvenanceHint provenanceId="container.restartCount" displayedValue={String(c.restartCount)} />
+              </dt>
               <dd>{c.restartCount}</dd>
             </div>
             <div>
@@ -162,7 +169,10 @@ export function ContainerDetailPage() {
               <dd>{formatUptime(c.uptimeSeconds)}</dd>
             </div>
             <div>
-              <dt>Writable layer</dt>
+              <dt>
+                Writable layer{' '}
+                <ProvenanceHint provenanceId="container.writableLayer" displayedValue={formatByteMetric(c.writableLayer)} />
+              </dt>
               <dd>{formatByteMetric(c.writableLayer)}</dd>
             </div>
             <div>
@@ -227,7 +237,10 @@ export function ContainerDetailPage() {
                         {e.networkName}
                       </Link>
                     </td>
-                    <td className="mono">{e.ipAddress || '—'}</td>
+                    <td className="mono">
+                      {e.ipAddress || '—'}{' '}
+                      {e.ipAddress ? <ProvenanceHint provenanceId="container.ip" displayedValue={e.ipAddress} /> : null}
+                    </td>
                     <td className="mono">{e.gateway || '—'}</td>
                   </tr>
                 ))}
@@ -277,38 +290,58 @@ export function ContainerDetailPage() {
       ) : null}
 
       {tab === 'stats' && c ? (
-        <section className="panel">
-          {c.stats ? (
-            <dl className="kv">
-              <div>
-                <dt>CPU</dt>
-                <dd>{formatCpu(c.stats.cpuPercent)}</dd>
-              </div>
-              <div>
-                <dt>Memory</dt>
-                <dd>
-                  {formatBytes(c.stats.memoryBytes)} / {formatBytes(c.stats.memoryLimitBytes)} (
-                  {c.stats.memoryPercent.toFixed(1)}%)
-                </dd>
-              </div>
-              <div>
-                <dt>Net I/O</dt>
-                <dd>
-                  rx {formatBytes(c.stats.networkRxBytes)} · tx {formatBytes(c.stats.networkTxBytes)}
-                </dd>
-              </div>
-              <div>
-                <dt>Block I/O</dt>
-                <dd>
-                  read {formatBytes(c.stats.blockReadBytes)} · write{' '}
-                  {formatBytes(c.stats.blockWriteBytes)}
-                </dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="muted">No stats sample (container may be stopped).</p>
-          )}
-        </section>
+        <>
+          <section className="panel">
+            {c.stats ? (
+              <dl className="kv">
+                <div>
+                  <dt>
+                    CPU <ProvenanceHint provenanceId="container.cpuPercent" displayedValue={formatCpu(c.stats.cpuPercent)} />
+                  </dt>
+                  <dd>{formatCpu(c.stats.cpuPercent)}</dd>
+                </div>
+                <div>
+                  <dt>
+                    Memory{' '}
+                    <ProvenanceHint
+                      provenanceId="container.memoryBytes"
+                      displayedValue={formatBytes(c.stats.memoryBytes)}
+                    />
+                  </dt>
+                  <dd>
+                    {formatBytes(c.stats.memoryBytes)} / {formatBytes(c.stats.memoryLimitBytes)} (
+                    {c.stats.memoryPercent.toFixed(1)}%)
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    Net I/O <ProvenanceHint provenanceId="container.networkIO" />
+                  </dt>
+                  <dd>
+                    rx {formatBytes(c.stats.networkRxBytes)} · tx {formatBytes(c.stats.networkTxBytes)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    Block I/O <ProvenanceHint provenanceId="container.blockIO" />
+                  </dt>
+                  <dd>
+                    read {formatBytes(c.stats.blockReadBytes)} · write{' '}
+                    {formatBytes(c.stats.blockWriteBytes)}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="muted">No stats sample (container may be stopped).</p>
+            )}
+          </section>
+          <HistoryCharts
+            scope="container"
+            id={c.id}
+            title="Container CPU / RAM (1h)"
+            rangeHours={1}
+          />
+        </>
       ) : null}
 
       {tab === 'logs' ? (
@@ -400,6 +433,8 @@ export function ContainerDetailPage() {
           </pre>
         </section>
       ) : null}
+
+      {tab === 'commands' && c ? <CliCommandsPanel kind="container" entityRef={c.name || c.id} /> : null}
     </div>
   )
 }

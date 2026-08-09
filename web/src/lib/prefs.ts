@@ -1,12 +1,43 @@
 export type Theme = 'dark' | 'light'
+export type Locale = 'en' | 'ru'
 
 const KEY_THEME = 'dv.theme'
 const KEY_TOKEN = 'dv.authToken'
 const KEY_REDACT = 'dv.inspectRedact'
 const KEY_HOST = 'dv.dockerHost'
+const KEY_LOCALE = 'dv.locale'
+const KEY_SHELL = 'dv.cliShell'
 
 /** Dispatched when the selected Docker host changes (ADR-014). */
 export const HOST_CHANGE_EVENT = 'dv:host-change'
+
+export type CliShell = 'bash' | 'powershell' | 'cmd'
+
+export function detectBrowserLocale(): Locale {
+  const lang = (navigator.language || 'en').toLowerCase()
+  if (lang.startsWith('ru')) return 'ru'
+  return 'en'
+}
+
+export function getLocale(): Locale {
+  const v = localStorage.getItem(KEY_LOCALE)
+  if (v === 'ru' || v === 'en') return v
+  return detectBrowserLocale()
+}
+
+export function setLocale(locale: Locale) {
+  localStorage.setItem(KEY_LOCALE, locale)
+}
+
+export function getCliShell(): CliShell {
+  const v = localStorage.getItem(KEY_SHELL)
+  if (v === 'powershell' || v === 'cmd' || v === 'bash') return v
+  return 'bash'
+}
+
+export function setCliShell(shell: CliShell) {
+  localStorage.setItem(KEY_SHELL, shell)
+}
 
 export function getTheme(): Theme {
   const v = localStorage.getItem(KEY_THEME)

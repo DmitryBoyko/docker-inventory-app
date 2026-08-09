@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchNetworks } from '../api/client'
+import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { formatAgeMs } from '../lib/format'
 import { useLiveState } from '../realtime/useLiveState'
 
@@ -10,6 +11,7 @@ export function NetworksPage() {
   const [params] = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
   const [driver, setDriver] = useState(params.get('driver') ?? '')
+  const [selected, setSelected] = useState('')
 
   const query = useQuery({
     queryKey: ['networks', { q, driver }],
@@ -67,8 +69,12 @@ export function NetworksPage() {
           </thead>
           <tbody>
             {rows.map((n) => (
-              <tr key={n.id}>
-                <td className="mono">{n.name}</td>
+              <tr key={n.id} className={selected === n.name ? 'row-selected' : undefined} onClick={() => setSelected(n.name)}>
+                <td className="mono">
+                  <button type="button" className="text-link linkish" onClick={() => setSelected(n.name)}>
+                    {n.name}
+                  </button>
+                </td>
                 <td>{n.driver}</td>
                 <td>{n.scope || '—'}</td>
                 <td>
@@ -113,6 +119,7 @@ export function NetworksPage() {
           </tbody>
         </table>
       </div>
+      {selected ? <CliCommandsPanel kind="network" entityRef={selected} /> : null}
     </div>
   )
 }
