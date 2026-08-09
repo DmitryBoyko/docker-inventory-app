@@ -109,12 +109,14 @@ type Container struct {
 	StartedAt       *time.Time       `json:"startedAt,omitempty"`
 	FinishedAt      *time.Time       `json:"finishedAt,omitempty"`
 	UptimeSeconds   *int64           `json:"uptimeSeconds,omitempty"`
-	Ports           []Port           `json:"ports"`
-	Endpoints       []NetworkEndpoint `json:"endpoints"`
-	Mounts          []Mount          `json:"mounts"`
-	WritableLayer   ByteMetric       `json:"writableLayer"`
-	Stats           *ContainerStats  `json:"stats,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
+	Ports             []Port              `json:"ports"`
+	ExternalExposure  []ExternalExposure  `json:"externalExposure"`
+	ExposureScope     ExposureScope       `json:"exposureScope"` // widest published scope for badges
+	Endpoints         []NetworkEndpoint   `json:"endpoints"`
+	Mounts            []Mount             `json:"mounts"`
+	WritableLayer     ByteMetric          `json:"writableLayer"`
+	Stats             *ContainerStats     `json:"stats,omitempty"`
+	Labels            map[string]string   `json:"labels,omitempty"`
 }
 
 // ContainerRef is a lightweight pointer used inside stacks/services.

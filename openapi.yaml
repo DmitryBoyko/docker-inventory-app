@@ -1320,6 +1320,86 @@ components:
           $ref: "#/components/schemas/ByteMetric"
         stats:
           $ref: "#/components/schemas/ContainerStats"
+        ports:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContainerPort"
+        externalExposure:
+          type: array
+          description: Published host→container routes (empty when internal-only)
+          items:
+            $ref: "#/components/schemas/ExternalExposure"
+        exposureScope:
+          type: string
+          description: Widest published scope for UI badges
+          enum: [external, localhost, lan, internal]
+        endpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContainerEndpoint"
+        mounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContainerMount"
+
+    ContainerPort:
+      type: object
+      required: [containerPort, protocol, exposure]
+      properties:
+        hostIP: { type: string }
+        hostPort:
+          type: integer
+          minimum: 0
+          maximum: 65535
+        containerPort:
+          type: integer
+          minimum: 0
+          maximum: 65535
+        protocol: { type: string }
+        exposure:
+          type: string
+          enum: [public, localhost, specific, internal]
+          description: Engine bind class (public = all interfaces)
+
+    ExternalExposure:
+      type: object
+      required: [hostIP, hostPort, containerPort, scope]
+      properties:
+        hostIP:
+          type: string
+          description: Host bind; "*" means all interfaces (0.0.0.0 / ::)
+        hostPort:
+          type: integer
+          minimum: 0
+          maximum: 65535
+        containerPort:
+          type: string
+          description: "443/tcp style"
+          example: "443/tcp"
+        scope:
+          type: string
+          enum: [external, localhost, lan]
+          description: external=all ifaces, localhost=loopback, lan=specific host IP
+
+    ContainerEndpoint:
+      type: object
+      required: [networkName]
+      properties:
+        networkId: { type: string }
+        networkName: { type: string }
+        ipAddress: { type: string }
+        gateway: { type: string }
+        macAddress: { type: string }
+
+    ContainerMount:
+      type: object
+      required: [type, destination, rw]
+      properties:
+        type: { type: string }
+        name: { type: string }
+        source: { type: string }
+        destination: { type: string }
+        rw: { type: boolean }
 
     Stack:
       type: object

@@ -10,6 +10,7 @@ import { HistoryCharts } from '../components/HistoryCharts'
 import { CliCommandsPanel } from '../components/CliCommandsPanel'
 import { ProvenanceHint } from '../components/ProvenanceHint'
 import { useT } from '../i18n'
+import { portExposureToScope } from '../lib/exposure'
 import { formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
 import { startLogStream } from '../lib/logStream'
 import { getInspectRedactDefault } from '../lib/prefs'
@@ -208,7 +209,11 @@ export function ContainerDetailPage() {
                     </td>
                     <td className="num">{p.containerPort}</td>
                     <td>{p.protocol}</td>
-                    <td>{p.exposure ?? '—'}</td>
+                    <td>
+                      <span className={`pill exposure-${portExposureToScope(p.exposure)}`}>
+                        {t(`exposure.scope.${portExposureToScope(p.exposure)}`)}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

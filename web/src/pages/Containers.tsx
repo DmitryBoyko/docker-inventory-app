@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchContainers } from '../api/client'
+import { ExposureBadge } from '../components/ExposureBadge'
 import { useT } from '../i18n'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu, formatUptime } from '../lib/format'
 import { mergeContainerStats } from '../realtime/store'
@@ -93,6 +94,7 @@ export function ContainersPage() {
               <th>{t('common.service')}</th>
               <th>{t('common.state')}</th>
               <th>{t('common.health')}</th>
+              <th>{t('exposure.column')}</th>
               <th className="num">{t('common.cpu')}</th>
               <th className="num">{t('common.memory')}</th>
               <th className="num">{t('containers.writable')}</th>
@@ -122,6 +124,9 @@ export function ContainersPage() {
                     {t(`containers.health.${c.health}` as 'containers.health.healthy')}
                   </span>
                 </td>
+                <td>
+                  <ExposureBadge container={c} t={t} compact />
+                </td>
                 <td className="num">{formatCpu(c.stats?.cpuPercent)}</td>
                 <td className="num">{formatBytes(c.stats?.memoryBytes)}</td>
                 <td className="num">{formatByteMetric(c.writableLayer)}</td>
@@ -135,7 +140,7 @@ export function ContainersPage() {
             ))}
             {!query.isLoading && rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="muted center">
+                <td colSpan={13} className="muted center">
                   {t('containers.empty')}
                 </td>
               </tr>

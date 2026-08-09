@@ -51,6 +51,32 @@ func TestFormatPortsPSStyle_LocalhostAndInternal(t *testing.T) {
 	}
 }
 
+func TestBuildExternalExposureAndSummary(t *testing.T) {
+	hp80 := uint16(80)
+	hp8080 := uint16(8080)
+	ports := []Port{
+		{HostIP: "0.0.0.0", HostPort: &hp80, ContainerPort: 80, Protocol: "tcp", Exposure: PortExposurePublic},
+		{HostIP: "127.0.0.1", HostPort: &hp8080, ContainerPort: 8080, Protocol: "tcp", Exposure: PortExposureLocalhost},
+		{ContainerPort: 5432, Protocol: "tcp", Exposure: PortExposureInternal},
+	}
+	routes := BuildExternalExposure(ports)
+	if len(routes) != 2 {
+		t.Fatalf("routes=%d %+v", len(routes), routes)
+	}
+	if routes[0].HostIP != "*" || routes[0].Scope != ExposureScopeExternal {
+		t.Fatalf("route0=%+v", routes[0])
+	}
+	if routes[1].Scope != ExposureScopeLocalhost {
+		t.Fatalf("route1=%+v", routes[1])
+	}
+	if SummarizeExposure(ports) != ExposureScopeExternal {
+		t.Fatalf("summary=%s", SummarizeExposure(ports))
+	}
+	if SummarizeExposure(nil) != ExposureScopeInternal {
+		t.Fatalf("empty summary")
+	}
+}
+
 func TestMapPortBindings(t *testing.T) {
 	ports := MapPortBindings([]PortBindingInput{
 		{HostIP: "0.0.0.0", HostPort: 80, ContainerPort: 80, Protocol: "tcp", Published: true},
@@ -58,9 +84,6 @@ func TestMapPortBindings(t *testing.T) {
 	})
 	if len(ports) != 2 {
 		t.Fatalf("len=%d", len(ports))
-	}
-	if ports[0].Exposure != PortExposureInternal { // sorted by container port: 53 then 80
-		// container 53 first
 	}
 	var pub, intern int
 	for _, p := range ports {
@@ -75,3 +98,4 @@ func TestMapPortBindings(t *testing.T) {
 		t.Fatalf("pub=%d internal=%d ports=%+v", pub, intern, ports)
 	}
 }
+

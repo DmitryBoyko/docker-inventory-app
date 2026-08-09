@@ -705,6 +705,69 @@ a {
   background: rgba(230, 184, 77, 0.1);
 }
 
+.pill.exposure-external {
+  color: #f07178;
+  border-color: rgba(240, 113, 120, 0.4);
+  background: rgba(240, 113, 120, 0.12);
+}
+
+.pill.exposure-lan {
+  color: var(--warn);
+  border-color: rgba(230, 184, 77, 0.35);
+  background: rgba(230, 184, 77, 0.1);
+}
+
+.pill.exposure-localhost {
+  color: #82aaff;
+  border-color: rgba(130, 170, 255, 0.35);
+  background: rgba(130, 170, 255, 0.1);
+}
+
+.pill.exposure-internal {
+  color: var(--muted);
+}
+
+.exposure-hint {
+  margin: -0.25rem 0 0.75rem;
+}
+
+.exposure-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.exposure-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.exposure-empty {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.exposure-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 18rem;
+}
+
+.exposure-preview {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12rem;
+}
+
 .panel-head {
   display: flex;
   align-items: center;

@@ -8,9 +8,12 @@ import {
   fetchSystemResources,
 } from '../api/client'
 import { ExportButtons } from '../components/ExportButtons'
+import { ExposureBadge } from '../components/ExposureBadge'
+import { ExposureMap } from '../components/ExposureMap'
 import { LiveCharts } from '../components/LiveCharts'
 import { StatCard } from '../components/StatCard'
 import { useT } from '../i18n'
+import { collectExposureRoutes, countByScope } from '../lib/exposure'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
 import { mergeContainerStats } from '../realtime/store'
 import { useLiveState } from '../realtime/useLiveState'
@@ -46,6 +49,9 @@ export function DashboardPage() {
     () => mergeContainerStats(containers.data?.data ?? []),
     [containers.data, live.statsById],
   )
+
+  const exposureRoutes = useMemo(() => collectExposureRoutes(list), [list])
+  const exposureCounts = useMemo(() => countByScope(exposureRoutes), [exposureRoutes])
 
   const liveCpu = live.history[live.history.length - 1]?.cpu
   const liveMem = live.history[live.history.length - 1]?.mem
@@ -100,6 +106,20 @@ export function DashboardPage() {
           hint={t('dash.hintRunningTotal')}
         />
         <StatCard label={t('dash.stacks')} value={String(stacks.data?.data?.length ?? '—')} />
+        <StatCard
+          label={t('exposure.statExternal')}
+          value={String(exposureCounts.external)}
+          hint={t('exposure.statExternalHint')}
+        />
+        <StatCard
+          label={t('exposure.statLocal')}
+          value={String(exposureCounts.localhost + exposureCounts.lan)}
+          hint={t('exposure.statLocalHint')}
+        />
+      </div>
+
+      <div className="stack-gap">
+        <ExposureMap routes={exposureRoutes} t={t} />
       </div>
 
       <div className="stack-gap">
@@ -161,6 +181,7 @@ export function DashboardPage() {
                 <tr>
                   <th>{t('common.name')}</th>
                   <th>{t('common.stack')}</th>
+                  <th>{t('exposure.column')}</th>
                   <th className="num">{t('common.cpu')}</th>
                   <th className="num">{t('common.memory')}</th>
                 </tr>
@@ -169,9 +190,17 @@ export function DashboardPage() {
                 {topMem.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <span className="mono">{c.name}</span>
+                      <Link
+                        className="text-link mono"
+                        to={`/containers/${encodeURIComponent(c.idShort)}`}
+                      >
+                        {c.name}
+                      </Link>
                     </td>
                     <td>{c.stack}</td>
+                    <td>
+                      <ExposureBadge container={c} t={t} compact />
+                    </td>
                     <td className="num">{formatCpu(c.stats?.cpuPercent)}</td>
                     <td className="num">{formatBytes(c.stats?.memoryBytes)}</td>
                   </tr>

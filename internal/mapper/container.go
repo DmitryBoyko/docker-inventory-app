@@ -18,24 +18,27 @@ func FromSummary(s container.Summary) domain.Container {
 		health = domain.NormalizeHealth(string(s.Health.Status))
 	}
 	health = domain.ResolveHealth(health, s.Status)
+	ports := mapPortSummaries(s.Ports)
 
 	return domain.Container{
-		ID:              s.ID,
-		IDShort:         domain.ShortID(s.ID),
-		Name:            domain.ContainerName(s.Names, ""),
-		Stack:           compose.Project,
-		Service:         compose.Service,
-		ContainerNumber: compose.ContainerNumber,
-		Image:           domain.ShortImage(s.Image),
-		ImageID:         s.ImageID,
-		State:           domain.ContainerState(strings.ToLower(string(s.State))),
-		Status:          s.Status,
-		Health:          health,
-		Ports:           mapPortSummaries(s.Ports),
-		Endpoints:       mapNetworkEndpoints(networkMapFromSummary(s.NetworkSettings)),
-		Mounts:          mapMountPoints(s.Mounts),
-		WritableLayer:   domain.AvailableBytes(s.SizeRw),
-		Labels:          cloneLabels(s.Labels),
+		ID:               s.ID,
+		IDShort:          domain.ShortID(s.ID),
+		Name:             domain.ContainerName(s.Names, ""),
+		Stack:            compose.Project,
+		Service:          compose.Service,
+		ContainerNumber:  compose.ContainerNumber,
+		Image:            domain.ShortImage(s.Image),
+		ImageID:          s.ImageID,
+		State:            domain.ContainerState(strings.ToLower(string(s.State))),
+		Status:           s.Status,
+		Health:           health,
+		Ports:            ports,
+		ExternalExposure: domain.BuildExternalExposure(ports),
+		ExposureScope:    domain.SummarizeExposure(ports),
+		Endpoints:        mapNetworkEndpoints(networkMapFromSummary(s.NetworkSettings)),
+		Mounts:           mapMountPoints(s.Mounts),
+		WritableLayer:    domain.AvailableBytes(s.SizeRw),
+		Labels:           cloneLabels(s.Labels),
 	}
 }
 

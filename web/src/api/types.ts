@@ -33,6 +33,15 @@ export type ContainerPort = {
   exposure?: string
 }
 
+export type ExposureScope = 'external' | 'localhost' | 'lan' | 'internal'
+
+export type ExternalExposure = {
+  hostIP: string
+  hostPort: number
+  containerPort: string
+  scope: Exclude<ExposureScope, 'internal'>
+}
+
 export type ContainerEndpoint = {
   networkId?: string
   networkName: string
@@ -64,6 +73,8 @@ export type Container = {
   writableLayer: ByteMetric
   stats?: ContainerStats | null
   ports?: ContainerPort[]
+  externalExposure?: ExternalExposure[]
+  exposureScope?: ExposureScope
   endpoints?: ContainerEndpoint[]
   mounts?: ContainerMount[]
 }
