@@ -19,6 +19,8 @@ Resolve the Engine endpoint in this order:
 
 Use API version negotiation. Surface actionable errors (not found, permission denied, daemon down, TLS).
 
+Remote `tcp://` TLS uses standard Docker CLI env via Moby `WithTLSClientConfigFromEnv()` (`DOCKER_CERT_PATH`, `DOCKER_TLS_VERIFY`, …).
+
 ## Alternatives
 
 - GOOS switch with fixed paths only
@@ -30,4 +32,6 @@ Matches how Docker CLI finds the engine across Desktop and Engine installs.
 
 ## Consequences
 
-Context store parsing must be unit-tested. Remote `tcp://` requires TLS awareness via standard Docker env vars.
+Context store parsing must be unit-tested.
+
+**Operator how-to (VPS checklist, examples, troubleshooting):** [`../../MANUAL.md`](../../MANUAL.md) §2–§5.

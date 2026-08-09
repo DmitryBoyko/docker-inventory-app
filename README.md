@@ -121,6 +121,8 @@ go run ./cmd/docker-visualizer \
 
 REST and WebSocket accept `?host=<name>` (omit → default host). Auth: `Authorization: Bearer <token>` (or `?access_token=` on WS). UI: Settings → store token in `localStorage`.
 
+**Remote VPS + TLS checklist:** [`MANUAL.md`](MANUAL.md#4-remote-vps--docker--checklist).
+
 ## API
 
 REST under `/api/v1/*`. Full contract: [`openapi.yaml`](openapi.yaml).
@@ -140,10 +142,11 @@ WebSocket event types: `container.stats`, `docker.event`, `snapshot.updated`, `c
 
 | Doc | Purpose |
 |-----|---------|
+| [`MANUAL.md`](MANUAL.md) | **Operator manual** — local run, remote VPS checklist, multi-host, TLS |
 | [`docs/implementation-plan.md`](docs/implementation-plan.md) | Architecture & phases |
 | [`docs/hardening.md`](docs/hardening.md) | Security hardening |
 | [`docs/cli-companion.md`](docs/cli-companion.md) | CLI Companion overview |
-| [`docs/adr/`](docs/adr/) | Architecture Decision Records (013–016+) |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records (010 discovery, 014 multi-host, …) |
 | [`docs/todos.md`](docs/todos.md) | Open TODOs |
 | [`web/`](web/) | React SPA source |
 | [`scripts/docker-stack-inventory.ps1`](scripts/docker-stack-inventory.ps1) | Legacy PowerShell inventory |

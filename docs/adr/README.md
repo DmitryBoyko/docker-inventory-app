@@ -1,6 +1,7 @@
 # Architecture Decision Records
 
-Canonical decisions for Docker Visualizer. Source narrative: [`../implementation-plan.md`](../implementation-plan.md).
+Canonical decisions for Docker Visualizer. Source narrative: [`../implementation-plan.md`](../implementation-plan.md).  
+**Operators (VPS / multi-host how-to):** [`../../MANUAL.md`](../../MANUAL.md).
 
 | ID | Title |
 |----|-------|
