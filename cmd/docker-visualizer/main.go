@@ -86,6 +86,7 @@ func main() {
 	imagesSvc := &app.ImagesService{Store: snapStore}
 	systemSvc := &app.SystemService{Store: snapStore}
 	graphSvc := &app.GraphService{Store: snapStore}
+	exportSvc := &app.ExportService{Store: snapStore}
 	diagSvc := &app.DiagnosticsService{
 		Store:   snapStore,
 		Docker:  cli,
@@ -139,6 +140,7 @@ func main() {
 		System:      systemSvc,
 		Graph:       graphSvc,
 		Diagnostics: diagSvc,
+		Export:      exportSvc,
 		Hub:         hub,
 		Events:      eventsCol,
 		Version:     version,

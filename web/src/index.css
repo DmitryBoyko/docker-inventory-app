@@ -151,10 +151,20 @@ a {
 
 .page-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.export-bar.compact .toolbar {
+  margin-bottom: 0;
+}
+
+.export-bar .warn.tiny {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
 }
 
 .page-head h1 {

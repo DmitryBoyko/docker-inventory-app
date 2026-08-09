@@ -32,6 +32,7 @@ func testServer(t testing.TB, st *store.Store) *Server {
 		Images:     &app.ImagesService{Store: st},
 		System:     &app.SystemService{Store: st},
 		Graph:      &app.GraphService{Store: st},
+		Export:     &app.ExportService{Store: st},
 		Version:    "test",
 	}
 }

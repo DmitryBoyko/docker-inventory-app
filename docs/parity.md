@@ -21,6 +21,18 @@ Compares the Go inventory snapshot to [`scripts/docker-stack-inventory.ps1`](../
 go test ./internal/parity/ -count=1
 ```
 
+## Product export (same schema)
+
+Operators can download the Go snapshot without running the PS script:
+
+```http
+GET /api/v1/export?format=json&scope=all
+GET /api/v1/export?format=csv&scope=containers
+GET /api/v1/export?format=csv&scope=stacks
+```
+
+UI: Dashboard / Settings → Export buttons.
+
 ## Live compare (same host)
 
 Requires Docker Engine access + PowerShell (`powershell.exe` on Windows, `pwsh` elsewhere).

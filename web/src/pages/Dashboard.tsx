@@ -7,6 +7,7 @@ import {
   fetchSystemInfo,
   fetchSystemResources,
 } from '../api/client'
+import { ExportButtons } from '../components/ExportButtons'
 import { LiveCharts } from '../components/LiveCharts'
 import { StatCard } from '../components/StatCard'
 import { formatAgeMs, formatByteMetric, formatBytes, formatCpu } from '../lib/format'
@@ -56,14 +57,17 @@ export function DashboardPage() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Dashboard</h1>
-        <p className="muted">
-          Snapshot age {formatAgeMs(containers.data?.snapshotAgeMs)}
-          {live.connected ? ' · live stats via WS' : ' · polling'}
-          {containers.data?.collectError ? (
-            <span className="warn"> · collect: {containers.data.collectError}</span>
-          ) : null}
-        </p>
+        <div>
+          <h1>Dashboard</h1>
+          <p className="muted">
+            Snapshot age {formatAgeMs(containers.data?.snapshotAgeMs)}
+            {live.connected ? ' · live stats via WS' : ' · polling'}
+            {containers.data?.collectError ? (
+              <span className="warn"> · collect: {containers.data.collectError}</span>
+            ) : null}
+          </p>
+        </div>
+        <ExportButtons compact />
       </div>
 
       {resources.isError ? (

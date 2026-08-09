@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { ApiError, fetchSystemSettings } from '../api/client'
+import { ExportButtons } from '../components/ExportButtons'
 import {
   clearAuthToken,
   getAuthToken,
@@ -178,6 +179,11 @@ export function SettingsPage() {
           Used for REST `Authorization: Bearer` and WebSocket `?access_token=`. Never sent to
           third parties.
         </p>
+      </section>
+
+      <section className="panel settings-panel">
+        <h2>Export</h2>
+        <ExportButtons />
       </section>
 
       <section className="panel settings-panel">

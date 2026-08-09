@@ -156,6 +156,35 @@ export function fetchSystemSettings() {
   return getJSON<ApiEnvelope<SystemSettings>>(`${API}/system/settings`)
 }
 
+export type ExportFormat = 'json' | 'csv'
+export type ExportScope = 'all' | 'containers' | 'stacks'
+
+/** Download inventory export (structured PS replacement). */
+export async function downloadExport(format: ExportFormat, scope: ExportScope = 'all') {
+  const qs = new URLSearchParams({ format, scope })
+  const res = await fetch(`${API}/export?${qs}`, { headers: authHeaders() })
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const body = (await res.json()) as ApiErrorBody
+      message = body.error?.message ?? message
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, 'export_failed', message)
+  }
+  const blob = await res.blob()
+  const cd = res.headers.get('Content-Disposition') ?? ''
+  const m = /filename="([^"]+)"/i.exec(cd)
+  const filename = m?.[1] ?? `docker-visualizer.${format}`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 /** Build WS URL including access_token when a client token is stored. */
 export function wsURL(): string {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

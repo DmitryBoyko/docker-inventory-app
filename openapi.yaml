@@ -298,6 +298,50 @@ paths:
         "404":
           description: Not found
 
+  /export:
+    get:
+      tags: [System]
+      summary: Download inventory export (JSON/CSV)
+      operationId: exportInventory
+      description: |
+        Structured PowerShell-replacement export using the parity schema (schemaVersion 1).
+        JSON includes containers, stacks, and totals. CSV is flat tables.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, csv], default: json }
+        - name: scope
+          in: query
+          description: |
+            all | containers | stacks.
+            For CSV, `all` exports the containers table.
+          schema: { type: string, enum: [all, containers, stacks], default: all }
+      responses:
+        "200":
+          description: File download
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+            text/csv:
+              schema: { type: string }
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+        "400":
+          description: Bad format/scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /graph:
     get:
       tags: [System]

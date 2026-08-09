@@ -1060,7 +1060,8 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 - Historical metrics (SQLite)  
 - Log stream WS  
 - Swarm stack labels  
-- Export JSON/CSV (structured PS replacement)  
+- Export JSON/CSV (structured PS replacement) ✅ — `GET /api/v1/export`  
+
 - Optional safe mutations behind explicit `--enable-mutate`  
 - Mobile-responsive polish  
 

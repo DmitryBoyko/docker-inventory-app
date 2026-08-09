@@ -24,6 +24,7 @@ type Server struct {
 	System      *app.SystemService
 	Graph       *app.GraphService
 	Diagnostics *app.DiagnosticsService
+	Export      *app.ExportService
 	Hub         *ws.Hub
 	Events      EventsStatus
 	Version     string
@@ -57,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/images/{id}", s.handleGetImage)
 
 	mux.HandleFunc("GET /api/v1/graph", s.handleGraph)
+	mux.HandleFunc("GET /api/v1/export", s.handleExport)
 
 	mux.HandleFunc("GET /api/v1/system/df", s.handleSystemDF)
 	mux.HandleFunc("GET /api/v1/system/resources", s.handleSystemResources)
@@ -447,6 +449,23 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 		"systemAt":   formatTimePtr(res.SystemAt),
 		"data":       res.Info,
 	})
+}
+
+func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
+	if s.Export == nil {
+		writeErr(w, http.StatusServiceUnavailable, "not_ready", "export not initialized")
+		return
+	}
+	res, err := s.Export.Export(r.URL.Query().Get("format"), r.URL.Query().Get("scope"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", res.ContentType)
+	w.Header().Set("Content-Disposition", res.ContentDisposition)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(res.Body)
 }
 
 func (s *Server) handleSystemSettings(w http.ResponseWriter, r *http.Request) {

@@ -2,7 +2,7 @@
 
 Cross-platform, read-only Docker inventory utility — **one binary** serves API + embedded React UI.
 
-**Status:** Phase 0–12 + V2 auth/Settings + V1 parity harness.
+**Status:** Phase 0–12 + V2 auth/Settings/export + V1 parity harness.
 
 - Architecture: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 - Hardening: [`docs/hardening.md`](docs/hardening.md)
@@ -77,6 +77,7 @@ GET /api/v1/volumes/{name}
 GET /api/v1/images                (?q=&dangling=)
 GET /api/v1/images/{id}
 GET /api/v1/graph                 (?scope=all|stack&stack=name)
+GET /api/v1/export                (?format=json|csv&scope=all|containers|stacks)
 GET /api/v1/system/df
 GET /api/v1/system/resources
 GET /api/v1/system/info
