@@ -1,0 +1,1078 @@
+openapi: 3.1.0
+info:
+  title: Docker Visualizer API
+  description: |
+    Read-only Docker inventory and visualization API.
+    Metrics units are explicit (see schemas). Volume sizes use availability semantics (ADR-011).
+  version: 0.1.0
+
+servers:
+  - url: http://127.0.0.1:8080/api/v1
+    description: Default local bind (ADR-009)
+
+tags:
+  - name: Health
+  - name: Containers
+  - name: Stacks
+  - name: Networks
+  - name: Volumes
+  - name: Images
+  - name: System
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness — process is up
+      operationId: getHealth
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness — Docker Engine reachable
+      operationId: getReady
+      responses:
+        "200":
+          description: Docker connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+        "503":
+          description: Docker unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /containers:
+    get:
+      tags: [Containers]
+      summary: List containers from inventory snapshot
+      parameters:
+        - name: stack
+          in: query
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { type: string }
+        - name: health
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          description: Search name/image/id/stack/service
+          schema: { type: string }
+      responses:
+        "200":
+          description: Container list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  snapshotAgeMs: { type: integer, format: int64 }
+                  collectError:
+                    type: [string, "null"]
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Container"
+  /containers/{id}:
+    get:
+      tags: [Containers]
+      summary: Get container by full or short ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Container details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/Container"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /containers/{id}/stats:
+    get:
+      tags: [Containers]
+      summary: Latest cached stats sample (Docker CLI-compatible formulas)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stats sample; data may be null if stopped or not yet sampled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, running, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  statsAt:
+                    type: [string, "null"]
+                    format: date-time
+                  running: { type: boolean }
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/ContainerStats"
+                      - type: "null"
+        "404":
+          description: Container not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /containers/{id}/inspect:
+    get:
+      tags: [Containers]
+      summary: Live Docker inspect JSON (redacted by default)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: redact
+          in: query
+          description: Default true — strips Env, RegistryAuth, secret-looking labels
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: Inspect document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    type: object
+                    required: [id, redacted, inspect]
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      redacted: { type: boolean }
+                      redactedFields:
+                        type: array
+                        items: { type: string }
+                      inspect:
+                        type: object
+                        additionalProperties: true
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /containers/{id}/logs:
+    get:
+      tags: [Containers]
+      summary: On-demand log snapshot (not persisted)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tail
+          in: query
+          schema: { type: integer, default: 200 }
+        - name: since
+          in: query
+          schema: { type: string }
+        - name: timestamps
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Demultiplexed log text
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    type: object
+                    required: [id, text, truncated, warning]
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      tail: { type: integer }
+                      since: { type: [string, "null"] }
+                      timestamps: { type: boolean }
+                      truncated: { type: boolean }
+                      text: { type: string }
+                      warning: { type: string }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stacks:
+    get:
+      tags: [Stacks]
+      summary: List Compose stacks with resource aggregation
+      responses:
+        "200":
+          description: Stack list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt: { type: [string, "null"], format: date-time }
+                  statsAt: { type: [string, "null"], format: date-time }
+                  systemAt: { type: [string, "null"], format: date-time }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Stack"
+  /stacks/{name}:
+    get:
+      tags: [Stacks]
+      summary: Get one stack
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stack detail
+        "404":
+          description: Not found
+  /stacks/{name}/volumes:
+    get:
+      tags: [Stacks]
+      summary: Volumes used by a stack
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stack volumes
+        "404":
+          description: Not found
+
+  /graph:
+    get:
+      tags: [System]
+      summary: Topology graph (stack → service → container → net/vol/image)
+      parameters:
+        - name: scope
+          in: query
+          description: all | stack
+          schema: { type: string, default: all }
+        - name: stack
+          in: query
+          description: Required when scope=stack
+          schema: { type: string }
+      responses:
+        "200":
+          description: Graph nodes and edges
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  statsAt:
+                    type: [string, "null"]
+                    format: date-time
+                  snapshotAgeMs: { type: integer, format: int64 }
+                  data:
+                    $ref: "#/components/schemas/Graph"
+        "400":
+          description: Invalid scope/stack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /networks:
+    get:
+      tags: [Networks]
+      summary: List networks
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: driver
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Network list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  snapshotAgeMs: { type: integer, format: int64 }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Network"
+  /networks/{id}:
+    get:
+      tags: [Networks]
+      summary: Get network by id, short id, or name
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Network detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    $ref: "#/components/schemas/Network"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /volumes:
+    get:
+      tags: [Volumes]
+      summary: List volumes with usage availability
+      parameters:
+        - name: stack
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Volume list
+  /volumes/{name}:
+    get:
+      tags: [Volumes]
+      summary: Get one volume
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Volume detail
+        "404":
+          description: Not found
+
+  /images:
+    get:
+      tags: [Images]
+      summary: List images
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: dangling
+          in: query
+          description: '"true" | "false" filter'
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  snapshotAgeMs: { type: integer, format: int64 }
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Image"
+  /images/{id}:
+    get:
+      tags: [Images]
+      summary: Get image by id, short id, or repo tag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image detail
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/Image"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /system/df:
+    get:
+      tags: [System]
+      summary: Disk usage summary (docker system df)
+      responses:
+        "200":
+          description: Disk usage categories
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  systemAt:
+                    type: [string, "null"]
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/DiskUsageView"
+        "503":
+          description: Not collected yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /system/resources:
+    get:
+      tags: [System]
+      summary: Grand totals (CPU/RAM/writable/volumes)
+      responses:
+        "200":
+          description: Aggregated resources
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  statsAt:
+                    type: [string, "null"]
+                    format: date-time
+                  systemAt:
+                    type: [string, "null"]
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/SystemResources"
+  /system/info:
+    get:
+      tags: [System]
+      summary: Docker engine info
+      operationId: getSystemInfo
+      responses:
+        "200":
+          description: Engine info from last system collect
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  snapshotAt:
+                    type: [string, "null"]
+                    format: date-time
+                  systemAt:
+                    type: [string, "null"]
+                    format: date-time
+                  data:
+                    $ref: "#/components/schemas/SystemInfo"
+        "503":
+          description: Not collected yet / system unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /system/settings:
+    get:
+      tags: [System]
+      summary: Read-only process settings for the UI
+      operationId: getSystemSettings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    $ref: "#/components/schemas/SystemSettings"
+        "401":
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Settings service not initialized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /system/diagnostics:
+    get:
+      tags: [System]
+      summary: Support diagnostics (localhost only)
+      operationId: getSystemDiagnostics
+      description: |
+        Returns process, Docker, collector, and snapshot diagnostics.
+        Rejects non-loopback RemoteAddr with 403. Does not trust X-Forwarded-For.
+        When auth is enabled, requires Bearer token in addition to localhost.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Diagnostics snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timestamp, data]
+                properties:
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not localhost
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Diagnostics service not initialized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ws:
+    get:
+      tags: [System]
+      summary: WebSocket hub (stats, events, snapshot notices)
+      operationId: getWebSocket
+      description: |
+        Upgrade to WebSocket. Client actions: subscribe/unsubscribe/ping.
+        Server types: container.stats, docker.event, snapshot.updated,
+        connection.status, events.status, ping/pong.
+        When auth is enabled, pass `Authorization: Bearer` or `?access_token=`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: access_token
+          in: query
+          required: false
+          schema: { type: string }
+          description: Token for browser WebSocket clients (no custom headers)
+      responses:
+        "101":
+          description: Switching Protocols
+        "401":
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Hub unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Required when `--auth-token` is set (always required for non-loopback listen).
+        WebSocket clients may use `?access_token=` instead.
+
+  schemas:
+    SystemSettings:
+      type: object
+      required:
+        [listen, listenLoopback, authEnabled, dockerTimeout, intervals, version, commit, uiEmbedded, defaults]
+      properties:
+        listen: { type: string }
+        listenLoopback: { type: boolean }
+        authEnabled: { type: boolean }
+        dockerTimeout: { type: string }
+        intervals:
+          type: object
+          additionalProperties: { type: string }
+        version: { type: string }
+        commit: { type: string }
+        uiEmbedded: { type: boolean }
+        defaults:
+          type: object
+          required: [inspectRedact]
+          properties:
+            inspectRedact: { type: boolean }
+
+    HealthResponse:
+      type: object
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadyResponse:
+      type: object
+      required: [ready, docker, timestamp]
+      properties:
+        ready:
+          type: boolean
+        docker:
+          $ref: "#/components/schemas/ConnectionStatus"
+        events:
+          type: object
+          properties:
+            connected: { type: boolean }
+            error:
+              type: [string, "null"]
+        timestamp:
+          type: string
+          format: date-time
+
+    ConnectionStatus:
+      type: object
+      required: [connected, host, source, checkedAt]
+      properties:
+        connected:
+          type: boolean
+        host:
+          type: string
+          description: Resolved Docker host URL (unix://, npipe:////, tcp://, ssh://)
+        source:
+          type: string
+          enum: [explicit, docker_host, context, default]
+        context:
+          type: string
+          description: Docker context name when source=context
+        apiVersion:
+          type: string
+        osType:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [error, timestamp]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+
+    ByteMetric:
+      type: object
+      required: [available]
+      description: |
+        Byte quantity with availability. When available=false, bytes is null.
+        Do not interpret missing size as 0.
+      properties:
+        bytes:
+          type: [integer, "null"]
+          format: int64
+        available:
+          type: boolean
+        reason:
+          type: string
+          enum: [unsupported, not_local_driver, daemon_omitted, collect_error, pending]
+
+    AggregateBytes:
+      type: object
+      required: [available, partial, unknownCount]
+      properties:
+        bytes:
+          type: [integer, "null"]
+          format: int64
+        available:
+          type: boolean
+        partial:
+          type: boolean
+        unknownCount:
+          type: integer
+        reason:
+          type: string
+
+    ContainerStats:
+      type: object
+      description: |
+        Live sample. cpuPercent is Docker CLI-compatible (%; may exceed 100).
+        Memory and IO fields are bytes.
+      required:
+        - timestamp
+        - cpuPercent
+        - memoryBytes
+        - memoryLimitBytes
+        - memoryPercent
+        - networkRxBytes
+        - networkTxBytes
+        - blockReadBytes
+        - blockWriteBytes
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        cpuPercent:
+          type: number
+          format: double
+          minimum: 0
+        memoryBytes:
+          type: integer
+          format: int64
+        memoryLimitBytes:
+          type: integer
+          format: int64
+        memoryPercent:
+          type: number
+          format: double
+        networkRxBytes:
+          type: integer
+          format: int64
+        networkTxBytes:
+          type: integer
+          format: int64
+        blockReadBytes:
+          type: integer
+          format: int64
+        blockWriteBytes:
+          type: integer
+          format: int64
+        countersAvailable:
+          type: boolean
+
+    Container:
+      type: object
+      required: [id, idShort, name, stack, state, health, restartCount, writableLayer]
+      properties:
+        id: { type: string }
+        idShort: { type: string }
+        name: { type: string }
+        stack:
+          type: string
+          description: Compose project or "standalone"
+        service:
+          type: [string, "null"]
+        image: { type: string }
+        state: { type: string }
+        health:
+          type: string
+          enum: [none, starting, healthy, unhealthy, unknown]
+        restartCount: { type: integer }
+        uptimeSeconds:
+          type: [integer, "null"]
+          format: int64
+        writableLayer:
+          $ref: "#/components/schemas/ByteMetric"
+        stats:
+          $ref: "#/components/schemas/ContainerStats"
+
+    Stack:
+      type: object
+      required: [name, resources, volumeUsage, unhealthyCount, restartedCount]
+      properties:
+        name: { type: string }
+        resources:
+          $ref: "#/components/schemas/ResourceSummary"
+        volumeUsage:
+          $ref: "#/components/schemas/AggregateBytes"
+        unhealthyCount: { type: integer }
+        restartedCount: { type: integer }
+
+    ResourceSummary:
+      type: object
+      properties:
+        cpuPercent:
+          type: number
+          format: double
+          description: Sum of running container cpuPercent (CLI-compatible)
+        memoryBytes:
+          type: integer
+          format: int64
+          description: Sum of running container memory usage (bytes)
+        writableLayer:
+          $ref: "#/components/schemas/AggregateBytes"
+        volumeData:
+          $ref: "#/components/schemas/AggregateBytes"
+        containerCount: { type: integer }
+        runningCount: { type: integer }
+
+    Volume:
+      type: object
+      required: [name, driver, usage]
+      properties:
+        name: { type: string }
+        driver: { type: string }
+        usage:
+          allOf:
+            - $ref: "#/components/schemas/ByteMetric"
+            - type: object
+              properties:
+                links:
+                  type: [integer, "null"]
+                  format: int64
+        containers:
+          type: array
+          items: { type: string }
+        stacks:
+          type: array
+          items: { type: string }
+        shared: { type: boolean }
+
+    Graph:
+      type: object
+      required: [scope, nodes, edges]
+      properties:
+        scope: { type: string, enum: [all, stack] }
+        stack: { type: string }
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphEdge"
+
+    GraphNode:
+      type: object
+      required: [id, type, label]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [stack, service, container, network, volume, image]
+        label: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+
+    GraphEdge:
+      type: object
+      required: [id, type, source, target]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [contains, runs, attached, mounts, uses_image]
+        source: { type: string }
+        target: { type: string }
+
+    Network:
+      type: object
+      required: [id, idShort, name, driver, internal]
+      properties:
+        id: { type: string }
+        idShort: { type: string }
+        name: { type: string }
+        driver: { type: string }
+        scope: { type: string }
+        internal: { type: boolean }
+        attachable: { type: boolean }
+        ingress: { type: boolean }
+        containers:
+          type: array
+          items: { type: string }
+        stacks:
+          type: array
+          items: { type: string }
+
+    Image:
+      type: object
+      required: [id, idShort, sizeBytes, dangling, containerCount]
+      properties:
+        id: { type: string }
+        idShort: { type: string }
+        repoTags:
+          type: array
+          items: { type: string }
+        repoDigests:
+          type: array
+          items: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        sharedSizeBytes:
+          type: [integer, "null"]
+          format: int64
+        createdAt:
+          type: [string, "null"]
+          format: date-time
+        containers:
+          type: array
+          items: { type: string }
+        containerCount: { type: integer }
+        dangling: { type: boolean }
+
+    SystemInfo:
+      type: object
+      required: [serverVersion, os, architecture, cpus, memoryBytes, containers, containersRunning, containersPaused, containersStopped, images]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        serverVersion: { type: string }
+        apiVersion: { type: string }
+        os: { type: string }
+        osVersion: { type: string }
+        osType: { type: string }
+        architecture: { type: string }
+        kernelVersion: { type: string }
+        cpus: { type: integer }
+        memoryBytes: { type: integer, format: int64 }
+        driver: { type: string }
+        dockerRootDir: { type: string }
+        containers: { type: integer }
+        containersRunning: { type: integer }
+        containersPaused: { type: integer }
+        containersStopped: { type: integer }
+        images: { type: integer }
+
+    SystemResources:
+      allOf:
+        - $ref: "#/components/schemas/ResourceSummary"
+        - type: object
+          properties:
+            networkRxBytes: { type: integer, format: int64 }
+            networkTxBytes: { type: integer, format: int64 }
+            blockReadBytes: { type: integer, format: int64 }
+            blockWriteBytes: { type: integer, format: int64 }
+
+    DiskUsageView:
+      type: object
+      description: Summary categories from docker system df
+      properties:
+        images:
+          $ref: "#/components/schemas/DiskUsageCategory"
+        containers:
+          $ref: "#/components/schemas/DiskUsageCategory"
+        volumes:
+          $ref: "#/components/schemas/DiskUsageCategory"
+        buildCache:
+          $ref: "#/components/schemas/DiskUsageCategory"
+
+    DiskUsageCategory:
+      type: object
+      properties:
+        totalCount: { type: integer, format: int64 }
+        activeCount: { type: integer, format: int64 }
+        totalSizeBytes: { type: integer, format: int64 }
+        reclaimableBytes: { type: integer, format: int64 }
+        itemsKnown: { type: boolean }

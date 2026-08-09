@@ -1,0 +1,14 @@
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+.DS_Store
+web/node_modules/
+web/dist/
+# Embedded UI build output (stub index.html is tracked)
+internal/uiembed/dist/**
+!internal/uiembed/dist/index.html
+.idea/
+.vscode/
+.goreleaser/
