@@ -1,10 +1,9 @@
 # Docker Visualizer — Implementation Plan / Technical Design
 
-**Status:** Architecture approved for implementation (no production code yet)  
-**Date:** 2026-08-09  
+**Status:** Implemented (phases + V2 companion); this doc remains the architecture baseline  
 **Source of truth (behavior):** `scripts/docker-stack-inventory.ps1`  
 **Secondary parity reference:** `scripts/docker-stack-inventory.sh`  
-**Prior proposals (non-authoritative):** `docs/idea.md`, `docs/correct-idea.md`
+**Current companion docs:** `docs/cli-companion.md`, `docs/adr/`, `docs/hardening.md`, `docs/parity.md`
 
 ---
 
@@ -21,7 +20,7 @@
 
 Исходный PowerShell делает **ровно 4 batch-вызова** Docker CLI и агрегирует результат по `com.docker.compose.project`. Go-версия должна сначала достичь **functional parity** с этим выводом, затем расширить сущности (networks/volumes/images как first-class, graph, realtime).
 
-Ключевые исправления относительно `docs/idea.md`:
+Ключевые исправления относительно ранних черновиков:
 
 1. Не хардкодить socket paths — discovery через config → `DOCKER_HOST` → Docker context → SDK defaults.
 2. Volume size — nullable + `available`/`reason`; Docker `UsageData.Size == -1` ≠ `0`.
@@ -903,7 +902,7 @@ docker-visualizer/
 └── README.md
 ```
 
-**Changes vs idea.md:** merge `models` into `domain`; add `collector`/`store`/`mapper`/`redact`; drop unused `pkg/openapi` codegen unless needed; no `utils` grab-bag — put helpers next to use.
+**Layout notes:** merge `models` into `domain`; add `collector`/`store`/`mapper`/`redact`; drop unused `pkg/openapi` codegen unless needed; no `utils` grab-bag — put helpers next to use.
 
 Responsibilities: transport (`httpapi`/`ws`) → app → store/domain → collector/docker.
 
@@ -1102,7 +1101,7 @@ Out of MVP: graph polish, image GC insights, auth, log streaming, mutations, his
 
 ### ADR-005 REST + limited WebSocket
 
-- **Context:** idea.md overused WS  
+- **Context:** early drafts overused WS
 - **Decision:** REST inventory; WS stats/events  
 - **Alternatives:** WS-everything, SSE-only  
 - **Why:** Cacheable reads; less bandwidth  
