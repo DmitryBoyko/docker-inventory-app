@@ -1,144 +1,170 @@
 # Docker Visualizer
 
-Cross-platform, read-only Docker inventory utility — **one binary** serves API + embedded React UI.
+[![CI](https://github.com/DmitryBoyko/docker-inventory-app/actions/workflows/ci.yml/badge.svg)](https://github.com/DmitryBoyko/docker-inventory-app/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License](https://img.shields.io/badge/license-proprietary-lightgrey)](#license)
 
-**Status:** Phase 0–12 + V2 + **CLI Companion** (Command Registry, provenance, anomaly diagnostics, inventory snapshots, i18n EN/RU, Ctrl/Cmd+K palette). Still read-only — no arbitrary shell execution.
+Cross-platform, **read-only** Docker inventory: one Go binary serves the API and an embedded React UI. Browse containers, stacks, networks, volumes, images, and system usage — plus CLI companion helpers (commands, diagnostics, snapshots). No arbitrary shell execution.
 
-- Architecture: [`docs/implementation-plan.md`](docs/implementation-plan.md)
-- Hardening: [`docs/hardening.md`](docs/hardening.md)
-- Companion: [`docs/adr/016-cli-companion.md`](docs/adr/016-cli-companion.md), [`docs/cli-companion.md`](docs/cli-companion.md)
-- ADRs: [`docs/adr/`](docs/adr/) (incl. [ADR-013](docs/adr/013-auth-token.md)–[016](docs/adr/016-cli-companion.md))
-- Open TODOs: [`docs/todos.md`](docs/todos.md)
-- OpenAPI: [`openapi.yaml`](openapi.yaml)
-- UI: [`web/`](web/)
-- Legacy PowerShell source of truth: [`scripts/docker-stack-inventory.ps1`](scripts/docker-stack-inventory.ps1)
+## Features
 
-## Quick start (dev)
+- **Live inventory** — containers, Compose stacks, networks, volumes, images, graph, export (JSON/CSV)
+- **Multi-host** — named Docker endpoints (`--docker-hosts`); UI host picker
+- **Observability** — stats, log follow (WS), optional SQLite metrics history
+- **CLI Companion** — Command Registry (Bash / PowerShell / CMD), provenance tooltips, anomaly diagnostics, sanitized inventory snapshots
+- **i18n** — English and Russian UI (Docker commands and API field names stay English)
+- **Single binary** — UI embedded at build time; optional on-disk `web/dist` for local UI iteration
+- **Auth** — Bearer token required when binding outside loopback (ADR-013)
+
+## Requirements
+
+| Component | Version |
+|-----------|---------|
+| Go | 1.25+ (see `go.mod`) |
+| Node.js | 24+ (UI build / Vite) |
+| Docker Engine | reachable via socket, named pipe, or TCP |
+
+## Quick start
+
+### Windows EXE (recommended on Windows)
+
+Prerequisites: [Go](https://go.dev/dl/) 1.25+, [Node.js](https://nodejs.org/) 24+, Docker Desktop running.
+
+```powershell
+# From repo root — build EXE with embedded UI
+.\scripts\build-exe.ps1
+
+# Run (builds automatically if bin\docker-visualizer.exe is missing)
+.\scripts\run-exe.ps1
+.\scripts\run-exe.ps1 -OpenBrowser
+```
+
+Then open [http://127.0.0.1:8080](http://127.0.0.1:8080).
+
+| Output | Path |
+|--------|------|
+| Local run | `bin\docker-visualizer.exe` |
+| Distribution name | `bin\docker-visualizer-windows-amd64.exe` |
+
+Common run options:
+
+```powershell
+.\bin\docker-visualizer.exe -h
+.\bin\docker-visualizer.exe --listen 127.0.0.1:8080
+.\bin\docker-visualizer.exe --listen 0.0.0.0:8080 --auth-token "your-secret"
+.\scripts\run-exe.ps1 -Listen 0.0.0.0:8080 -AuthToken "your-secret"
+```
+
+If PowerShell blocks scripts: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+### Development (hot UI)
 
 ```bash
-# terminal 1 — API (serves disk web/dist if present, else embedded UI)
+# terminal 1 — API (uses web/dist if present, else embedded UI)
 go run ./cmd/docker-visualizer
 
 # terminal 2 — Vite with /api proxy
-cd web && npm run dev
+cd web && npm install && npm run dev
 ```
 
-Defaults:
+Open the Vite URL (usually `http://127.0.0.1:5173`). API defaults to `http://127.0.0.1:8080`.
 
-- Listen: `127.0.0.1:8080`
-- Docker host discovery: `--docker-host` / `DOCKER_VISUALIZER_DOCKER_HOST` → `DOCKER_HOST` → Docker context → platform default
-
-## Single binary (Phase 11)
+### Linux / macOS binary
 
 ```bash
-# Linux/macOS
-make build          # npm build → sync embed → CGO=0 go build → bin/
-
-# Windows (PowerShell)
-.\scripts\build.ps1
-.\scripts\build.ps1 -Cross   # windows/linux/darwin amd64+arm64
-```
-
-Then:
-
-```bash
+make build
 ./bin/docker-visualizer
-# open http://127.0.0.1:8080
 ```
 
-UI resolution order:
+Cross-compile / release:
 
-1. On-disk `web/dist` (dev override after `npm run build`)
-2. Embedded `internal/uiembed/dist` (release)
+```bash
+make build-all                 # or: .\scripts\build.ps1 -Cross
+make release-snapshot          # optional GoReleaser snapshot
+```
+
+### UI resolution order
+
+1. On-disk `web/dist` (after `npm run build`)
+2. Embedded `internal/uiembed/dist` (release builds)
 3. API-only if neither is available
 
-Release with GoReleaser (optional):
+## Configuration
 
-```bash
-make release-snapshot   # requires goreleaser
-```
+Docker host discovery: `--docker-host` / `DOCKER_VISUALIZER_DOCKER_HOST` → `DOCKER_HOST` → Docker context → platform default.
 
-## API surface
-
-```text
-GET /api/v1/health
-GET /api/v1/ready                 (+ events.connected; ?host=)
-GET /api/v1/hosts                 (named Docker endpoints, ADR-014)
-GET /api/v1/containers            (?host=&stack=&state=&health=&q=)
-GET /api/v1/containers/{id}
-GET /api/v1/containers/{id}/stats
-GET /api/v1/containers/{id}/inspect  (?redact=true default)
-GET /api/v1/containers/{id}/logs     (?tail=&since=&timestamps=)
-GET /api/v1/containers/{id}/logs/ws  WebSocket follow stream
-GET /api/v1/stacks
-GET /api/v1/stacks/{name}
-GET /api/v1/stacks/{name}/volumes
-GET /api/v1/networks              (?q=&driver=)
-GET /api/v1/networks/{id}
-GET /api/v1/volumes               (?stack=&q=)
-GET /api/v1/volumes/{name}
-GET /api/v1/images                (?q=&dangling=)
-GET /api/v1/images/{id}
-GET /api/v1/graph                 (?scope=all|stack&stack=name)
-GET /api/v1/export                (?format=json|csv&scope=all|containers|stacks)
-GET /api/v1/metrics/history       (?host=&scope=host|container&id=&from=&to=&step=)
-GET /api/v1/system/df
-GET /api/v1/system/resources
-GET /api/v1/system/info
-GET /api/v1/system/settings
-GET /api/v1/system/diagnostics    (localhost only — support dump)
-GET /api/v1/commands              (Command Registry definitions)
-GET /api/v1/commands/{id}
-GET /api/v1/entities/{kind}/commands (?ref=&shell=bash|powershell|cmd)
-GET /api/v1/diagnostics           (anomaly findings)
-GET /api/v1/diagnostics/{id}
-GET /api/v1/provenance
-GET /api/v1/provenance/{id}
-GET /api/v1/snapshots
-POST /api/v1/snapshots            ({"label":"..."})
-GET /api/v1/snapshots/{id}
-GET /api/v1/snapshots/{id}/diff   (?against=current|<id>)
-DELETE /api/v1/snapshots/{id}
-GET /api/v1/ws                    WebSocket hub
-```
-
-WebSocket types: `container.stats`, `docker.event`, `snapshot.updated`, `connection.status`, `events.status`.
-
-Auth (ADR-013): `--auth-token` required when listen is not loopback. Protects `/api/v1/*` except `GET /api/v1/health`. WS: `Authorization: Bearer` or `?access_token=`. UI: Settings → token in `localStorage`.
-
-Flags:
-
-```text
---listen 127.0.0.1:8080
---auth-token <secret>              # required for 0.0.0.0 / LAN binds
---docker-host unix:///var/run/docker.sock
---docker-hosts name=url,name2=url  # multi-host (ADR-014); empty ⇒ single "default"
---docker-config C:\Users\you\.docker
---docker-timeout 5s
---inventory-interval 10s
---stats-interval 1s
---system-interval 15s
---metrics-db data/metrics.db       # SQLite history (ADR-015); off disables
---metrics-interval 10s
---metrics-retention 24h
---snapshots-dir data/snapshots     # inventory snapshots (ADR-016); off disables
-```
+| Flag | Default | Notes |
+|------|---------|--------|
+| `--listen` | `127.0.0.1:8080` | Bind address |
+| `--auth-token` | _(empty)_ | **Required** when listen is not loopback |
+| `--docker-host` | _(auto)_ | Single Engine endpoint |
+| `--docker-hosts` | _(empty)_ | `name=url,name2=url` multi-host; empty ⇒ single `default` |
+| `--docker-config` | Docker default | Client config dir |
+| `--docker-timeout` | `5s` | Engine API timeout |
+| `--inventory-interval` | `10s` | Inventory refresh |
+| `--stats-interval` | `1s` | Live stats cadence |
+| `--system-interval` | `15s` | System info refresh |
+| `--metrics-db` | `data/metrics.db` | SQLite history; `off` disables |
+| `--metrics-interval` | `10s` | History sample interval |
+| `--metrics-retention` | `24h` | History retention |
+| `--snapshots-dir` | `data/snapshots` | Inventory snapshots; `off` disables |
 
 Multi-host example:
 
 ```bash
-go run ./cmd/docker-visualizer --docker-hosts "local=npipe:////./pipe/docker_engine,lab=tcp://192.168.1.10:2376"
+go run ./cmd/docker-visualizer \
+  --docker-hosts "local=npipe:////./pipe/docker_engine,lab=tcp://192.168.1.10:2376"
 ```
 
-UI Host picker appears when more than one host is configured. REST/WS take `?host=<name>` (omit → default).
+REST and WebSocket accept `?host=<name>` (omit → default host). Auth: `Authorization: Bearer <token>` (or `?access_token=` on WS). UI: Settings → store token in `localStorage`.
 
-## Tests
+## API
+
+REST under `/api/v1/*`. Full contract: [`openapi.yaml`](openapi.yaml).
+
+| Area | Examples |
+|------|----------|
+| Health / hosts | `/health`, `/ready`, `/hosts` |
+| Inventory | `/containers`, `/stacks`, `/networks`, `/volumes`, `/images`, `/graph`, `/export` |
+| Live | `/containers/{id}/stats`, `/logs`, `/logs/ws`, `/ws` |
+| System | `/system/df`, `/resources`, `/info`, `/settings`, `/diagnostics` (localhost support dump) |
+| Companion | `/commands`, `/diagnostics` (findings), `/provenance`, `/snapshots` |
+| Metrics | `/metrics/history` |
+
+WebSocket event types: `container.stats`, `docker.event`, `snapshot.updated`, `connection.status`, `events.status`.
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/implementation-plan.md`](docs/implementation-plan.md) | Architecture & phases |
+| [`docs/hardening.md`](docs/hardening.md) | Security hardening |
+| [`docs/cli-companion.md`](docs/cli-companion.md) | CLI Companion overview |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records (013–016+) |
+| [`docs/todos.md`](docs/todos.md) | Open TODOs |
+| [`web/`](web/) | React SPA source |
+| [`scripts/docker-stack-inventory.ps1`](scripts/docker-stack-inventory.ps1) | Legacy PowerShell inventory |
+
+## Development
 
 ```bash
 go test ./...
 go test -tags=integration ./internal/docker/ -v
-cd web && npm test
+cd web && npm test && npm run build
 
 # Live Go ↔ PowerShell parity (needs Docker + pwsh/powershell)
 go run ./cmd/parity-check -skip-stats
 ```
+
+CI runs on `main` / PRs: sync UI embed → `go test` → host build → cross-compile matrix (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+## Security
+
+- **Read-only** by design: inventory and CLI *generation* only — no `POST /exec` / PTY.
+- Snapshots are sanitized (no Env / secrets).
+- Non-loopback binds require `--auth-token`.
+- `/api/v1/system/diagnostics` is localhost-only.
+
+## License
+
+No open-source license is published in this repository yet. Treat the code as proprietary unless a `LICENSE` file is added.
